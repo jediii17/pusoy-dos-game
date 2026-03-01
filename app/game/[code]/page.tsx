@@ -6,6 +6,13 @@ import CardComponent from '@/components/Card';
 import PlayerSeat from '@/components/PlayerSeat';
 import LastPlayArea from '@/components/LastPlayArea';
 
+import { usePusher } from '@/app/hooks/usePusher';
+import { 
+  Trophy, Sun, Moon, Play, SkipForward, 
+  RotateCcw, Home, LayoutGrid, Users, 
+  ArrowRight, CreditCard, User
+} from 'lucide-react';
+
 interface Card { rank: string; suit: string; id: string; }
 interface GamePlayer {
   id: string; name: string; connected: boolean; position: number;
@@ -41,7 +48,6 @@ export default function GamePage() {
   const [sortMode, setSortMode] = useState<'rank' | 'suit'>('rank');
   const [error, setError] = useState('');
   const [notification, setNotification] = useState('');
-  const wsRef = useRef<WebSocket | null>(null);
   const [darkMode, setDarkMode] = useState(false);
 
   const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') || '' : '';
@@ -52,48 +58,39 @@ export default function GamePage() {
     setTimeout(() => setNotification(''), 3000);
   };
 
-  const connect = useCallback(() => {
-    if (!playerId || !playerName || !code) return;
-    const wsUrl = `ws://${window.location.host}/ws?room=${code}&player=${playerId}&name=${encodeURIComponent(playerName)}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
+  const onPusherMessage = useCallback((msg: any) => {
+    if (msg.type === 'game_state') {
+      setGameState(msg.gameState);
+      setError('');
+    } else if (msg.type === 'game_over') {
+      setGameState(msg.gameState);
+      setTimeout(() => router.push(`/gameover/${code}`), 2000);
+    } else if (msg.type === 'room_state') {
+      if (msg.room.gameState) setGameState(msg.room.gameState);
+      else router.push(`/room/${code}`);
+    } else if (msg.type === 'error') {
+      setError(msg.message);
+      setTimeout(() => setError(''), 3000);
+    } else if (msg.type === 'player_left') {
+      showNotif('A player disconnected');
+    }
+  }, [code, router]);
 
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'game_state') {
-          setGameState(msg.gameState);
-          setError('');
-        } else if (msg.type === 'game_over') {
-          setGameState(msg.gameState);
-          setTimeout(() => router.push(`/gameover/${code}`), 2000);
-        } else if (msg.type === 'room_state') {
-          if (msg.room.gameState) setGameState(msg.room.gameState);
-          else router.push(`/room/${code}`);
-        } else if (msg.type === 'error') {
-          setError(msg.message);
-          setTimeout(() => setError(''), 3000);
-        } else if (msg.type === 'player_left') {
-          showNotif('A player disconnected');
-        }
-      } catch {}
-    };
+  const { sendAction } = usePusher(code, onPusherMessage);
 
-    ws.onerror = () => setError('Connection lost. Reconnecting…');
-    ws.onclose = () => {
-      setTimeout(connect, 2000);
-    };
-
-    const ping = setInterval(() => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }));
-    }, 25000);
-    return () => clearInterval(ping);
-  }, [playerId, playerName, code, router]);
-
+  // Fetch initial game state
   useEffect(() => {
-    const cleanup = connect();
-    return () => { cleanup?.(); wsRef.current?.close(); };
-  }, [connect]);
+    if (!code || !playerId) return;
+    const fetchState = async () => {
+      const resp = await sendAction('get_state');
+      if (resp.room?.gameState) {
+        setGameState(resp.room.gameState);
+      } else if (resp.error) {
+        setError(resp.error);
+      }
+    };
+    fetchState();
+  }, [code, playerId, sendAction]);
 
   function toggleCard(cardId: string) {
     setSelectedCards(prev => {
@@ -103,15 +100,25 @@ export default function GamePage() {
     });
   }
 
-  function playCards() {
+  async function playCards() {
     if (selectedCards.size === 0) { setError('Select cards to play'); return; }
-    wsRef.current?.send(JSON.stringify({ type: 'play_cards', cardIds: Array.from(selectedCards) }));
-    setSelectedCards(new Set());
+    const resp = await sendAction('play', { cardIds: Array.from(selectedCards) });
+    if (resp.error) {
+      setError(resp.error);
+      setTimeout(() => setError(''), 3000);
+    } else {
+      setSelectedCards(new Set());
+    }
   }
 
-  function pass() {
-    wsRef.current?.send(JSON.stringify({ type: 'pass' }));
-    setSelectedCards(new Set());
+  async function pass() {
+    const resp = await sendAction('pass');
+    if (resp.error) {
+      setError(resp.error);
+      setTimeout(() => setError(''), 3000);
+    } else {
+      setSelectedCards(new Set());
+    }
   }
 
   const [mounted, setMounted] = useState(false);
@@ -165,21 +172,32 @@ export default function GamePage() {
       {/* Header */}
       <header className="game-header">
         <div className="game-header-logo">
-          <span>🃏</span>
-          <span>Pusoy Dos</span>
+          <span style={{ color: 'var(--accent)' }}>🃏</span>
+          <span style={{ fontFamily: 'var(--font-fredoka)' }}>Pusoy Dos</span>
         </div>
         <div className="game-header-info">
           {isMyTurn && !iAmFinished && !iAmPassed && (
-            <span className="your-turn-badge">YOUR TURN</span>
+            <span className="your-turn-badge">
+              <Play size={12} fill="currentColor" />
+              <span>YOUR TURN</span>
+            </span>
           )}
           {currentPlayer && !isMyTurn && (
-            <span className="other-turn-badge">{currentPlayer.name}'s Turn</span>
+            <span className="other-turn-badge">
+              <User size={12} />
+              <span>{currentPlayer.name}'s Turn</span>
+            </span>
           )}
           {iAmPassed && <span className="passed-badge">You Passed</span>}
-          {iAmFinished && <span className="finished-badge">You Finished #{me?.finishOrder}!</span>}
+          {iAmFinished && (
+            <span className="finished-badge">
+              <Trophy size={12} />
+              <span>Finished #{me?.finishOrder}!</span>
+            </span>
+          )}
         </div>
         <button className="dark-toggle" onClick={() => setDarkMode(d => !d)}>
-          {darkMode ? '☀️' : '🌙'}
+          {darkMode ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </header>
 
@@ -242,15 +260,25 @@ export default function GamePage() {
             className="pass-btn"
             onClick={pass}
             disabled={!isMyTurn || iAmFinished || iAmPassed || gameState.lastPlay === null}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
           >
-            Pass
+            <SkipForward size={18} />
+            <span>Pass</span>
           </button>
           <button
             className="play-btn"
+            style={{ 
+               background: !isMyTurn || iAmFinished || selectedCards.size === 0 ? '#02241a' : 'var(--accent)',
+               color: !isMyTurn || iAmFinished || selectedCards.size === 0 ? '#1a3a2e' : '#000',
+               boxShadow: !isMyTurn || iAmFinished || selectedCards.size === 0 ? 'none' : '0 10px 30px var(--accent-glow)',
+               opacity: 1,
+               display: 'flex', alignItems: 'center', gap: '0.5rem'
+            }}
             onClick={playCards}
             disabled={!isMyTurn || iAmFinished || selectedCards.size === 0}
           >
-            Play ({selectedCards.size})
+            <Play size={18} fill="currentColor" />
+            <span>Play ({selectedCards.size})</span>
           </button>
         </div>
       </div>

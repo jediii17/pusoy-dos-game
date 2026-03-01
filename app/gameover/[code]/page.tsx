@@ -1,7 +1,9 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { usePusher } from '@/app/hooks/usePusher';
+import { Trophy, RotateCcw, Home, Users, ArrowLeft } from 'lucide-react';
 
 interface GamePlayer {
   id: string; name: string; cardCount: number;
@@ -17,44 +19,35 @@ export default function GameOverPage() {
   const params = useParams();
   const code = params.code as string;
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const wsRef = useRef<WebSocket | null>(null);
 
   const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') || '' : '';
-  const playerName = typeof window !== 'undefined' ? sessionStorage.getItem('playerName') || '' : '';
 
-  const connect = useCallback(() => {
-    if (!playerId || !playerName || !code) return;
-    const wsUrl = `ws://${window.location.host}/ws?room=${code}&player=${playerId}&name=${encodeURIComponent(playerName)}`;
-    const ws = new WebSocket(wsUrl);
-    wsRef.current = ws;
-    ws.onmessage = (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'room_state' && msg.room.gameState) setGameState(msg.room.gameState);
-        if (msg.type === 'game_over') setGameState(msg.gameState);
-        if (msg.type === 'game_state') setGameState(msg.gameState);
-      } catch {}
-    };
-  }, [playerId, playerName, code]);
+  const onPusherMessage = useCallback((msg: any) => {
+    if (msg.type === 'room_state' && msg.room.gameState) setGameState(msg.room.gameState);
+    if (msg.type === 'game_over') setGameState(msg.gameState);
+    if (msg.type === 'game_state') setGameState(msg.gameState);
+  }, []);
+
+  const { sendAction } = usePusher(code, onPusherMessage);
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
-    connect();
-    // Also try to load from sessionStorage (set by game page before redirect)
+    const fetchState = async () => {
+      const resp = await sendAction('get_state');
+      if (resp.room?.gameState) setGameState(resp.room.gameState);
+    };
+    fetchState();
     const stored = sessionStorage.getItem('finalGameState');
     if (stored) { try { setGameState(JSON.parse(stored)); } catch {} }
-    return () => wsRef.current?.close();
-  }, [connect]);
+  }, [sendAction]);
 
   function playAgain() {
-    wsRef.current?.close();
     sessionStorage.removeItem('isHost');
     router.push('/');
   }
 
   function backToLobby() {
-    wsRef.current?.close();
     sessionStorage.removeItem('isHost');
     router.push('/');
   }
@@ -76,21 +69,23 @@ export default function GameOverPage() {
   });
 
   const winner = sorted[0];
-  const totalRounds = 1; // could track this in the future
-
   const rankLabels = ['1st', '2nd', '3rd', '4th'];
-  const rankColors = ['#FFD700', '#C0C0C0', '#CD7F32', '#FF6B6B'];
+  const rankColors = ['#fdbf2d', '#C0C0C0', '#CD7F32', '#FF6B6B'];
 
   return (
     <div className="gameover-bg">
-      <div className="gameover-trophy">🏆</div>
+      <div className="gameover-trophy">
+        <Trophy size={64} color="var(--accent)" fill="var(--accent)" opacity={0.2} style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', zIndex: 0 }} />
+        <Trophy size={48} color="var(--accent)" fill="var(--accent)" />
+      </div>
       <h1 className="gameover-title">Game Over!</h1>
       <p className="gameover-subtitle">
-        The game has ended. <span className="winner-name">{winner?.name}</span> finished first!
+        The game has ended. <span className="winner-name" style={{ color: 'var(--accent)', fontWeight: '700' }}>{winner?.name}</span> finished first!
       </p>
 
       <div className="gameover-card">
-        <div className="gameover-card-header">
+        <div className="gameover-card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <Users size={18} color="var(--accent)" />
           <span className="gameover-final-label">Final Standings</span>
         </div>
 
@@ -102,11 +97,11 @@ export default function GameOverPage() {
           </div>
           {sorted.map((player, i) => (
             <div key={player.id} className={`gameover-row ${i === 0 ? 'winner-row' : ''} ${player.id === playerId ? 'you-row' : ''}`}>
-              <span className="rank-badge" style={{ background: rankColors[i] }}>
+              <span className="rank-badge" style={{ background: rankColors[i], color: i === 0 ? '#000' : 'white' }}>
                 {i + 1}
               </span>
               <span className="player-name-col">
-                {i === 0 && <span className="trophy-icon">🏆</span>}
+                {i === 0 && <Trophy size={14} color="var(--accent)" fill="currentColor" style={{ marginRight: '6px' }} />}
                 {player.name}
                 {i === 0 && <span className="winner-tag">Winner</span>}
                 {player.finishOrder > 0 && i > 0 && (
@@ -122,11 +117,13 @@ export default function GameOverPage() {
         </div>
 
         <div className="gameover-actions">
-          <button className="gameover-lobby-btn" onClick={backToLobby}>
-            ↩ Back to Lobby
+          <button className="gameover-lobby-btn" onClick={backToLobby} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+            <Home size={18} />
+            <span>Back to Lobby</span>
           </button>
-          <button className="gameover-again-btn" onClick={playAgain}>
-            🔄 Play Again
+          <button className="gameover-again-btn" onClick={playAgain} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
+            <RotateCcw size={18} />
+            <span>Play Again</span>
           </button>
         </div>
       </div>
