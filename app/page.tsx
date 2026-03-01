@@ -151,7 +151,10 @@ export default function LandingPage() {
         </button>
       </div>
 
-      <footer className="landing-footer">Filipino Card Game • 3-4 Players <br/><span className="text-xs opacity-75 mt-1 block">Developed by Kairo</span></footer>
+      <div className="landing-footer-group">
+        <footer className="landing-footer">Filipino Card Game • 3-4 Players</footer>
+        <span className="landing-footer-dev">Developed by Kairo</span>
+      </div>
     </main>
   );
 }

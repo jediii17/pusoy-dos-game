@@ -69,9 +69,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   font-weight: 700;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.75rem;
   color: white;
   margin-bottom: 0.5rem;
+  text-align: center;
 }
 .landing-logo-text .logo-icon { 
   font-size: 5rem;
@@ -239,11 +241,26 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   box-shadow: none; 
 }
 
+.landing-footer-group {
+  margin-top: -1rem; /* Binds it closer to the card, overriding parent gap */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  text-align: center;
+}
+
 .landing-footer {
-  margin-top: 1rem;
   color: #006b4b;
   opacity: 0.6;
-  font-size: 1rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.landing-footer-dev {
+  color: #006b4b;
+  opacity: 0.6;
+  font-size: 0.75rem;
   font-weight: 500;
 }
 
@@ -1231,4 +1248,16 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .card-center-suit { font-size: 1.2rem; }
   .landing-card, .lobby-card { padding: 1.5rem 1.25rem; background: #00000066; }
   .gameover-card { border-radius: 12px; }
+
+  /* Responsive Landing & Lobby Header/Footer */
+  .landing-logo-text { font-size: 2.25rem; gap: 0.4rem; }
+  .landing-logo-text .logo-icon { width: 32px !important; height: 32px !important; }
+  .landing-tagline { font-size: 0.85rem; }
+  .landing-footer-group { margin-top: 0.25rem; gap: 0; }
+  .landing-footer { font-size: 0.75rem; padding: 0 1rem; line-height: 1.4; }
+  .landing-footer-dev { font-size: 0.75rem; padding: 0 1rem; line-height: 1.4; }
+  
+  .lobby-header-small h1 { font-size: 1.85rem; gap: 0.4rem; }
+  .room-id-code { font-size: 1.5rem; letter-spacing: 0.2em; }
+  .players-card { padding: 0.75rem; }
 }
