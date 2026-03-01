@@ -63,7 +63,7 @@ export default function PlayerSeat({ player, layout, isCurrentTurn, isWinning }:
             className="seat-facedown-card"
             style={{ 
               transform: `rotate(${(i - 2.5) * 8}deg) translateX(${i * 6}px)`,
-              marginLeft: i === 0 ? 0 : '-35px',
+              marginLeft: i === 0 ? 0 : '-38px',
               zIndex: i
             }}
           />

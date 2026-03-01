@@ -635,6 +635,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 280px; /* Ensure table doesn't disappear on short screens */
 }
 
 .game-table::before {
@@ -699,9 +700,19 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 
 /* Seat positions */
-.seat-top { top: 2rem; left: 50%; transform: translateX(-50%); flex-direction: column; }
-.seat-left { left: 5%; top: 40%; transform: translateY(-50%); flex-direction: column; }
-.seat-right { right: 5%; top: 40%; transform: translateY(-50%); flex-direction: column; }
+.seat-top { top: 1.5rem; left: 50%; transform: translateX(-50%); flex-direction: column; }
+.seat-left { left: 4%; top: 35%; transform: translateY(-50%); flex-direction: column; }
+.seat-right { right: 4%; top: 35%; transform: translateY(-50%); flex-direction: column; }
+
+@media (max-width: 768px) {
+  .seat-left { left: 2%; top: 25%; }
+  .seat-right { right: 2%; top: 25%; }
+  .seat-top { top: 1rem; }
+}
+
+@media (max-height: 700px) {
+  .seat-left, .seat-right { top: 30%; }
+}
 
 .seat-avatar {
   width: 36px; height: 36px;
@@ -1044,6 +1055,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   border-top: 1px solid rgba(255,255,255,0.08);
   padding: 0.75rem 1.25rem 1rem;
   flex-shrink: 0;
+  z-index: 20;
+}
+
+@media (max-width: 640px) {
+  .player-area { padding: 0.5rem 0.75rem 0.75rem; }
 }
 
 .player-area-header {
@@ -1065,6 +1081,12 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   color: white; font-weight: 700; font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+  .player-avatar-sm { width: 28px; height: 28px; font-size: 0.75rem; }
+  .player-name-label { font-size: 0.75rem; }
+  .player-card-count { font-size: 0.65rem; }
 }
 
 .player-name-label { display: block; color: white; font-weight: 600; font-size: 0.88rem; }
@@ -1095,6 +1117,20 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   position: relative;
   /* Premium overlapping cards */
   margin-top: -20px;
+}
+
+@media (max-height: 750px), (max-width: 640px) {
+  .hand-container {
+    height: 140px;
+    margin-top: -10px;
+    padding: 0 20px;
+  }
+}
+
+@media (max-height: 600px) {
+  .hand-container {
+    height: 110px;
+  }
 }
 
 .hand-container > .card {
@@ -1148,6 +1184,16 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .play-btn:hover:not(:disabled) { background: #4db375; transform: translateY(-1px); box-shadow: 0 6px 18px rgba(58,150,96,0.5); }
 .play-btn:active:not(:disabled) { transform: translateY(0); }
 .play-btn:disabled { opacity: 0.35; cursor: not-allowed; transform: none; box-shadow: none; }
+
+@media (max-width: 640px) {
+  .action-bar { gap: 0.5rem; margin-top: 0.25rem; }
+  .play-btn, .pass-btn { 
+    padding: 0.4rem 1rem; 
+    font-size: 0.85rem; 
+    height: 2.6rem; 
+    border-radius: 8px; 
+  }
+}
 
 /* ─────────────────────────────────────────────────────────
    CUSTOM MODALS (Dissolved, Full Room, etc.)
