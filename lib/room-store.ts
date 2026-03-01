@@ -13,6 +13,7 @@ export interface Player {
 
 export interface GamePlayer extends Player {
   hand: Card[];
+  cardCount: number; // Added for explicit tracking in client
   passed: boolean;
   finished: boolean;
   finishOrder: number;
@@ -65,6 +66,10 @@ export async function saveRoom(room: Room): Promise<void> {
   await redis.set(`${ROOM_KEY_PREFIX}${room.code.toUpperCase()}`, room, { ex: 3600 * 24 }); // Expire in 24h
 }
 
+export async function deleteRoom(code: string): Promise<void> {
+  await redis.del(`${ROOM_KEY_PREFIX}${code.toUpperCase()}`);
+}
+
 export async function createRoom(maxPlayers: 3 | 4, hostId: string, hostName: string): Promise<Room> {
   let code: string;
   let exists = true;
@@ -104,13 +109,15 @@ export async function joinRoom(code: string, playerId: string, playerName: strin
   if (existing) {
     existing.connected = true;
     await saveRoom(room);
-    return { room };
+    await broadcast(code, 'room_state', { room: getPublicRoomState(room, '') });
+    return { room: getPublicRoomState(room, playerId) };
   }
 
   const position = room.players.length;
   room.players.push({ id: playerId, name: playerName, connected: true, position });
   await saveRoom(room);
-  return { room };
+  await broadcast(code, 'room_state', { room: getPublicRoomState(room, '') });
+  return { room: getPublicRoomState(room, playerId) };
 }
 
 export async function startGame(code: string): Promise<{ gameState?: GameState; error?: string }> {
@@ -124,6 +131,7 @@ export async function startGame(code: string): Promise<{ gameState?: GameState; 
   const gamePlayers: GamePlayer[] = room.players.map((p, i) => ({
     ...p,
     hand: deal.hands[i],
+    cardCount: deal.hands[i].length,
     passed: false,
     finished: false,
     finishOrder: 0,
@@ -144,13 +152,20 @@ export async function startGame(code: string): Promise<{ gameState?: GameState; 
   room.gameState = gameState;
   await saveRoom(room);
   
-  // Broadcast game start via Pusher
+  // Broadcast game start via Pusher (strips hands for everyone in shared broadcast)
   await broadcast(code, 'game_state', { gameState: getPublicGameState(gameState, '') });
   
-  return { gameState };
+  return { gameState: getPublicGameState(gameState, room.hostId) };
 }
 
-export function getPublicGameState(gs: GameState, requestingPlayerId: string) {
+export function getPublicRoomState(room: Room, requestingPlayerId: string): any {
+  return {
+    ...room,
+    gameState: room.gameState ? getPublicGameState(room.gameState, requestingPlayerId) : null
+  };
+}
+
+export function getPublicGameState(gs: GameState, requestingPlayerId: string): any {
   return {
     phase: gs.phase,
     currentPlayerIndex: gs.currentPlayerIndex,
@@ -161,15 +176,9 @@ export function getPublicGameState(gs: GameState, requestingPlayerId: string) {
     aside: gs.aside,
     maxPlayers: gs.maxPlayers,
     players: gs.players.map((p) => ({
-      id: p.id,
-      name: p.name,
-      connected: p.connected,
-      position: p.position,
+      ...p,
       cardCount: p.hand.length,
-      passed: p.passed,
-      finished: p.finished,
-      finishOrder: p.finishOrder,
-      // Only send the hand to the requesting player
+      // Stripe hand for security unless it's the owner's request
       hand: p.id === requestingPlayerId ? p.hand : undefined,
     })),
   };
@@ -202,22 +211,59 @@ export async function playCards(code: string, playerId: string, cardIds: string[
 
   const player = gs.players[playerIdx];
   const playedCards = cardIds.map(id => player.hand.find(c => c.id === id)).filter((c): c is Card => !!c);
-  if (playedCards.length !== cardIds.length) return { error: 'Invalid card selection' };
+  if (playedCards.length !== cardIds.length) {
+    return { error: 'Invalid card selection: some cards are no longer in your hand. Please refresh.' };
+  }
 
   const comboType = getComboType(playedCards);
   if (!comboType) return { error: 'Invalid combination' };
 
-  if (gs.isFirstPlay && !isValidFirstPlay(playedCards))
-    return { error: 'First play must include the 3 of Clubs' };
+  // First play must include the 3 of Clubs
+  if (gs.isFirstPlay && !isValidFirstPlay(playedCards)) {
+    return { error: 'First play must include the 3 of Clubs (♣3)' };
+  }
+
+  const otherActivePlayers = gs.players.filter(p => !p.finished && !p.passed && p.id !== playerId);
+  
+  // Safety: If everyone else passed or finished, the round should have reset.
+  // We clear lastPlay to allow the player to lead freely.
+  if (otherActivePlayers.length === 0) {
+    gs.lastPlay = null;
+  }
 
   if (gs.lastPlay !== null) {
     const currentCombo = { type: gs.lastPlay.comboType as any, cards: gs.lastPlay.cards };
     const attemptCombo = { type: comboType, cards: playedCards };
-    if (!canBeat(currentCombo, attemptCombo))
-      return { error: 'Must play a higher combination of the same type' };
+
+    if (!canBeat(currentCombo, attemptCombo)) {
+      const leadType = gs.lastPlay.comboType;
+      
+      // Contextual Tips
+      if (leadType === 'single') {
+        return { error: 'The current play is a single card. Tip: You must play exactly one card (higher rank) to beat it.' };
+      }
+      if (leadType === 'pair') {
+        return { error: 'The current play is a pair. Tip: You must play a pair (2 cards) of higher rank to beat it.' };
+      }
+      if (leadType === 'triple') {
+        return { error: 'The current play is a three-of-a-kind. Tip: You must play three cards of the same higher rank to beat it.' };
+      }
+      
+      // For 5-card hands
+      const is5CardLead = ['straight', 'flush', 'fullhouse', 'fourofakind', 'straightflush'].includes(leadType!);
+      if (is5CardLead) {
+        if (playedCards.length !== 5) {
+          return { error: 'The current play is a 5-card combination. Tip: You must play 5 cards to challenge this hand.' };
+        }
+        return { error: `Must play a higher 5-card hand (like a higher ${leadType}) to beat the current play.` };
+      }
+
+      return { error: `Your move cannot beat the current ${leadType}.` };
+    }
   }
 
   player.hand = player.hand.filter(c => !cardIds.includes(c.id));
+  player.cardCount = player.hand.length;
   gs.lastPlay = { playerId, playerName: player.name, cards: playedCards, comboType: comboType! };
   gs.isFirstPlay = false;
 
@@ -234,15 +280,16 @@ export async function playCards(code: string, playerId: string, cardIds: string[
       }
       gs.phase = 'finished';
       await saveRoom(room);
-      await broadcast(code, 'game_over', { gameState: gs });
-      return { gameState: gs };
+      await broadcast(code, 'game_over', { gameState: getPublicGameState(gs, '') });
+      return { gameState: getPublicGameState(gs, playerId) };
     }
   }
 
   advanceTurn(gs);
   await saveRoom(room);
-  await broadcast(code, 'game_state', { gameState: gs });
-  return { gameState: gs };
+  // Broadcast update (strips hands for security)
+  await broadcast(code, 'game_state', { gameState: getPublicGameState(gs, '') });
+  return { gameState: getPublicGameState(gs, playerId) };
 }
 
 export async function passTurn(code: string, playerId: string): Promise<{ gameState?: GameState; error?: string }> {
@@ -255,22 +302,46 @@ export async function passTurn(code: string, playerId: string): Promise<{ gameSt
   if (gs.lastPlay === null) return { error: 'Cannot pass when you are the round starter' };
 
   gs.players[playerIdx].passed = true;
-  const activePlayers = gs.players.filter(p => !p.finished && !p.passed);
-  if (activePlayers.length === 0) {
-    const lastPlayerId = gs.lastPlay.playerId;
-    const roundStarterIdx = gs.players.findIndex(p => p.id === lastPlayerId);
+  
+  // Who is left that can still play in this round?
+  const stillInRound = gs.players.filter(p => !p.finished && !p.passed);
+
+  // If everyone else passed (or finished), the round is over
+  // The last attacker (the one who didn't pass) wins the round
+  if (stillInRound.length <= 1) {
+    const lastAttackerId = gs.lastPlay?.playerId;
+    // The winner is the last attacker, OR if they finished, the person who would have been next
+    let nextStarterIdx = lastAttackerId ? gs.players.findIndex(p => p.id === lastAttackerId) : -1;
+
+    // If attacker is finished or missing, find next non-finished player
+    if (nextStarterIdx === -1 || gs.players[nextStarterIdx].finished) {
+      let searchIdx = playerIdx; // start from person who just passed
+      for (let i = 0; i < gs.players.length; i++) {
+        searchIdx = (searchIdx + 1) % gs.players.length;
+        if (!gs.players[searchIdx].finished) {
+          nextStarterIdx = searchIdx;
+          break;
+        }
+      }
+    }
+
+    // Reset round state for new lead
     gs.players.forEach(p => { if (!p.finished) p.passed = false; });
     gs.lastPlay = null;
-    gs.roundStarter = roundStarterIdx;
-    gs.currentPlayerIndex = roundStarterIdx;
+    gs.roundStarter = nextStarterIdx;
+    gs.currentPlayerIndex = nextStarterIdx;
+    
     await saveRoom(room);
-    await broadcast(code, 'game_state', { gameState: gs });
-    return { gameState: gs };
+    // Broadcast update (strips hands for security)
+    await broadcast(code, 'game_state', { gameState: getPublicGameState(gs, '') });
+    return { gameState: getPublicGameState(gs, playerId) };
   }
+
   advanceTurn(gs);
   await saveRoom(room);
-  await broadcast(code, 'game_state', { gameState: gs });
-  return { gameState: gs };
+  // Broadcast update (strips hands for security)
+  await broadcast(code, 'game_state', { gameState: getPublicGameState(gs, '') });
+  return { gameState: getPublicGameState(gs, playerId) };
 }
 
 export async function playerDisconnect(code: string, playerId: string): Promise<Room | undefined> {
@@ -285,4 +356,28 @@ export async function playerDisconnect(code: string, playerId: string): Promise<
   await saveRoom(room);
   await broadcast(code, 'player_left', { playerId });
   return room;
+}
+
+export async function leaveRoom(code: string, playerId: string): Promise<{ success: boolean; error?: string }> {
+  const room = await getRoom(code);
+  if (!room) return { success: true }; // Already gone
+
+  if (room.hostId === playerId) {
+    // Admin is leaving: Dissolve the room
+    await deleteRoom(code);
+    await broadcast(code, 'room_dissolved', { message: 'The host has closed the room.' });
+    return { success: true };
+  }
+
+  // Regular player is leaving: Remove them
+  room.players = room.players.filter(p => p.id !== playerId);
+  if (room.gameState) {
+    room.gameState.players = room.gameState.players.map(p => 
+      p.id === playerId ? { ...p, connected: false } : p
+    );
+  }
+  
+  await saveRoom(room);
+  await broadcast(code, 'room_state', { room: getPublicRoomState(room, '') });
+  return { success: true };
 }

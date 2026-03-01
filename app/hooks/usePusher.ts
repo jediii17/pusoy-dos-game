@@ -8,6 +8,9 @@ export function usePusher(roomCode: string, onMessage: (msg: any) => void) {
   const [connected, setConnected] = useState(false);
   const pusherRef = useRef<Pusher | null>(null);
 
+  const onMessageRef = useRef(onMessage);
+  onMessageRef.current = onMessage;
+
   useEffect(() => {
     if (!roomCode) return;
 
@@ -19,18 +22,24 @@ export function usePusher(roomCode: string, onMessage: (msg: any) => void) {
     const channel = pusher.subscribe(`room-${roomCode}`);
 
     channel.bind_global((eventName: string, data: any) => {
-      // Pusher uses event names; we wrap them to match the old WS message format
-      onMessage({ type: eventName, ...data });
+      onMessageRef.current({ type: eventName, ...data });
     });
 
     pusher.connection.bind('connected', () => setConnected(true));
     pusher.connection.bind('disconnected', () => setConnected(false));
+    pusher.connection.bind('error', (err: any) => {
+      console.warn('Pusher connection error:', err);
+    });
 
     return () => {
-      pusher.unsubscribe(`room-${roomCode}`);
-      pusher.disconnect();
+      if (pusherRef.current) {
+        channel.unbind_all();
+        pusher.unsubscribe(`room-${roomCode}`);
+        pusher.disconnect();
+        pusherRef.current = null;
+      }
     };
-  }, [roomCode, onMessage]);
+  }, [roomCode]);
 
   const sendAction = useCallback(async (action: string, payload: any = {}) => {
     const playerId = sessionStorage.getItem('playerId');

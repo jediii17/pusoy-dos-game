@@ -10,7 +10,7 @@ import { usePusher } from '@/app/hooks/usePusher';
 import { 
   Trophy, Sun, Moon, Play, SkipForward, 
   RotateCcw, Home, LayoutGrid, Users, 
-  ArrowRight, CreditCard, User
+  ArrowRight, CreditCard, User, LogOut
 } from 'lucide-react';
 
 interface Card { rank: string; suit: string; id: string; }
@@ -49,6 +49,7 @@ export default function GamePage() {
   const [error, setError] = useState('');
   const [notification, setNotification] = useState('');
   const [darkMode, setDarkMode] = useState(false);
+  const [isDissolved, setIsDissolved] = useState(false);
 
   const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') || '' : '';
   const playerName = typeof window !== 'undefined' ? sessionStorage.getItem('playerName') || '' : '';
@@ -60,10 +61,41 @@ export default function GamePage() {
 
   const onPusherMessage = useCallback((msg: any) => {
     if (msg.type === 'game_state') {
-      setGameState(msg.gameState);
+      setGameState(prev => {
+        if (!prev) return msg.gameState;
+        const newPlayers = msg.gameState.players.map((p: any) => {
+          if (p.id === playerId) {
+            // ONLY update the hand if the server explicitly sent one (not undefined/stripped)
+            const incomingHand = p.hand;
+            const existingHand = prev.players.find(oldP => oldP.id === playerId)?.hand;
+            return { 
+              ...p, 
+              hand: incomingHand !== undefined ? incomingHand : existingHand 
+            };
+          }
+          return p;
+        });
+        return { ...msg.gameState, players: newPlayers };
+      });
       setError('');
     } else if (msg.type === 'game_over') {
-      setGameState(msg.gameState);
+      setGameState(prev => {
+        if (!prev) return msg.gameState;
+        const newPlayers = msg.gameState.players.map((p: any) => {
+          if (p.id === playerId) {
+            // For game_over, we expect the hand to be present if the player hasn't finished
+            // but still preserve if it's stripped for some reason.
+            const incomingHand = p.hand;
+            const existingHand = prev.players.find(oldP => oldP.id === playerId)?.hand;
+            return { 
+              ...p, 
+              hand: incomingHand !== undefined ? incomingHand : existingHand 
+            };
+          }
+          return p;
+        });
+        return { ...msg.gameState, players: newPlayers };
+      });
       setTimeout(() => router.push(`/gameover/${code}`), 2000);
     } else if (msg.type === 'room_state') {
       if (msg.room.gameState) setGameState(msg.room.gameState);
@@ -73,6 +105,8 @@ export default function GamePage() {
       setTimeout(() => setError(''), 3000);
     } else if (msg.type === 'player_left') {
       showNotif('A player disconnected');
+    } else if (msg.type === 'room_dissolved') {
+      setIsDissolved(true);
     }
   }, [code, router]);
 
@@ -106,7 +140,11 @@ export default function GamePage() {
     if (resp.error) {
       setError(resp.error);
       setTimeout(() => setError(''), 3000);
-    } else {
+    } else if (resp.gameState) {
+      setGameState(resp.gameState);
+      setSelectedCards(new Set());
+    }
+ else {
       setSelectedCards(new Set());
     }
   }
@@ -116,6 +154,8 @@ export default function GamePage() {
     if (resp.error) {
       setError(resp.error);
       setTimeout(() => setError(''), 3000);
+    } else if (resp.gameState) {
+      setGameState(resp.gameState);
     } else {
       setSelectedCards(new Set());
     }
@@ -150,6 +190,9 @@ export default function GamePage() {
     return sorted.map((p, i) => ({ player: p, layout: positions[i] || 'top' }));
   };
 
+  const activePlayers = gameState.players.filter(p => !p.finished);
+  const minCards = activePlayers.length > 0 ? Math.min(...activePlayers.map(p => p.cardCount)) : 99;
+  
   const opponentLayouts = getOpponentLayout();
 
   // Sort hand
@@ -210,6 +253,7 @@ export default function GamePage() {
             player={player}
             layout={layout}
             isCurrentTurn={gameState.players[gameState.currentPlayerIndex]?.id === player.id}
+            isWinning={player.cardCount === minCards && player.cardCount > 0}
           />
         ))}
 
@@ -227,7 +271,14 @@ export default function GamePage() {
       <div className="player-area">
         <div className="player-area-header">
           <div className="player-info-bar">
-            <div className="player-avatar-sm">{playerName[0]?.toUpperCase()}</div>
+            <div className="player-avatar-sm" style={{ position: 'relative' }}>
+              {playerName[0]?.toUpperCase()}
+              {me?.cardCount === minCards && me?.cardCount > 0 && (
+                <div className="winning-crown self-winning">
+                  <Trophy size={14} fill="#FFD700" color="#FFD700" />
+                </div>
+              )}
+            </div>
             <div>
               <span className="player-name-label">You</span>
               <span className="player-card-count">{myHand.length} Cards</span>
@@ -282,6 +333,24 @@ export default function GamePage() {
           </button>
         </div>
       </div>
+
+      {isDissolved && (
+        <div className="modal-overlay">
+          <div className="custom-modal">
+            <div className="modal-icon-container">
+              <LogOut size={32} />
+            </div>
+            <h2 className="modal-title">Room Closed</h2>
+            <p className="modal-description">
+              The host has left and the room is now closed.
+            </p>
+            <button className="primary-btn" onClick={() => router.push('/')} style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+              <ArrowRight size={18} />
+              <span>Back to Home</span>
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

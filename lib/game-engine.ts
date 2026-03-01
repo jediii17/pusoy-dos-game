@@ -75,17 +75,39 @@ export function dealCards(playerCount: 3 | 4): DealResult {
   const deck = shuffleDeck(createDeck());
   const hands: Card[][] = [];
 
+  // Final helper to shuffle the hands as well, ensuring position randomization
+  const shuffleHands = (h: Card[][]) => {
+    const arr = [...h];
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  };
+
   if (playerCount === 4) {
     for (let i = 0; i < 4; i++) {
       hands.push(deck.slice(i * 13, (i + 1) * 13));
     }
-    return { hands, aside: null };
+    return { hands: shuffleHands(hands), aside: null };
   } else {
     // 3 players: 17 cards each, 1 set aside
     for (let i = 0; i < 3; i++) {
       hands.push(deck.slice(i * 17, (i + 1) * 17));
     }
-    return { hands, aside: deck[51] };
+    let aside = deck[51];
+    
+    // Ensure ♣3 (3 of Clubs) is always in an active hand
+    const threeOfClubsId = '3_clubs';
+    if (aside.id === threeOfClubsId) {
+      const targetHandIdx = Math.floor(Math.random() * 3);
+      const targetCardIdx = Math.floor(Math.random() * 17);
+      const cardToSwap = hands[targetHandIdx][targetCardIdx];
+      hands[targetHandIdx][targetCardIdx] = aside;
+      aside = cardToSwap;
+    }
+    
+    return { hands: shuffleHands(hands), aside };
   }
 }
 
@@ -105,15 +127,24 @@ function rankGroups(cards: Card[]): Map<Rank, Card[]> {
 
 function isStraight(cards: Card[]): boolean {
   if (cards.length !== 5) return false;
-  const s = sorted(cards);
-  // Special case: A-2-3-4-5 is NOT a valid straight in Pusoy Dos
-  // Valid straights must be 5 consecutive ranks in normal order
+  const ranks = cards.map(c => rankValue(c.rank)).sort((a,b) => a - b);
+  
+  // Normal straight
+  let isNormal = true;
   for (let i = 1; i < 5; i++) {
-    const prev = RANK_ORDER.indexOf(s[i - 1].rank);
-    const curr = RANK_ORDER.indexOf(s[i].rank);
-    if (curr - prev !== 1) return false;
+    if (ranks[i] - ranks[i - 1] !== 1) {
+      isNormal = false;
+      break;
+    }
   }
-  return true;
+  if (isNormal) return true;
+
+  // Wrap-around straights
+  const ranksStr = ranks.join(',');
+  if (ranksStr === '0,1,2,11,12') return true; // A-2-3-4-5
+  if (ranksStr === '0,1,2,3,12') return true; // 2-3-4-5-6
+
+  return false;
 }
 
 function isFlush(cards: Card[]): boolean {
@@ -177,6 +208,14 @@ function compareByHighestCard(a: Card[], b: Card[]): number {
   return 0;
 }
 
+// Flushes are compared by Suit first, then highest card
+function compareFlushes(a: Card[], b: Card[]): number {
+  const suitA = suitValue(a[0].suit);
+  const suitB = suitValue(b[0].suit);
+  if (suitA !== suitB) return suitA - suitB;
+  return compareByHighestCard(a, b);
+}
+
 // Get the "key" card of a Full House (the triple rank)
 function fullHouseKey(cards: Card[]): Card {
   const g = rankGroups(cards);
@@ -202,9 +241,10 @@ function compareFiveCard(a: Combo, b: Combo): number {
 
   switch (a.type) {
     case 'straight':
-    case 'flush':
     case 'straightflush':
       return compareByHighestCard(a.cards, b.cards);
+    case 'flush':
+      return compareFlushes(a.cards, b.cards);
     case 'fullhouse': {
       const diff = compareCards(fullHouseKey(a.cards), fullHouseKey(b.cards));
       return diff;
@@ -218,10 +258,18 @@ function compareFiveCard(a: Combo, b: Combo): number {
   }
 }
 
-// ── Main Compare / CanBeat ─────────────────────────────────
 // Returns negative if a < b, 0 equal, positive if a > b
 export function compareHands(a: Combo, b: Combo): number {
-  if (a.type !== b.type) return NaN; // incompatible — can't compare directly
+  const is5CardA = FIVE_CARD_RANK.includes(a.type!);
+  const is5CardB = FIVE_CARD_RANK.includes(b.type!);
+
+  // If both are 5-card hands, compare them even if specific types differ
+  if (is5CardA && is5CardB) {
+    return compareFiveCard(a, b);
+  }
+
+  // Otherwise, types must match exactly (Single vs Single, Pair vs Pair, etc.)
+  if (a.type !== b.type) return NaN; 
 
   switch (a.type) {
     case 'single':
@@ -237,12 +285,11 @@ export function compareHands(a: Combo, b: Combo): number {
       return suitValue(highA.suit) - suitValue(highB.suit);
     }
     default:
-      return compareFiveCard(a, b);
+      return 0;
   }
 }
 
 export function canBeat(current: Combo, attempt: Combo): boolean {
-  if (current.type !== attempt.type) return false;
   const cmp = compareHands(attempt, current);
   return !isNaN(cmp) && cmp > 0;
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { startGame, playCards, passTurn, getRoom, joinRoom } from '@/lib/room-store';
+import { startGame, playCards, passTurn, getRoom, joinRoom, leaveRoom, getPublicGameState } from '@/lib/room-store';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,6 +15,12 @@ export async function POST(req: NextRequest) {
         const { room, error } = await joinRoom(code, playerId, playerName || 'Player');
         if (error) return NextResponse.json({ error }, { status: 400 });
         return NextResponse.json({ room });
+      }
+      
+      case 'leave': {
+        const { success, error } = await leaveRoom(code, playerId);
+        if (error) return NextResponse.json({ error }, { status: 400 });
+        return NextResponse.json({ success });
       }
       
       case 'start': {
@@ -38,7 +44,11 @@ export async function POST(req: NextRequest) {
       case 'get_state': {
         const room = await getRoom(code);
         if (!room) return NextResponse.json({ error: 'Room not found' }, { status: 404 });
-        return NextResponse.json({ room });
+        const publicRoom = {
+          ...room,
+          gameState: room.gameState ? getPublicGameState(room.gameState, playerId) : null
+        };
+        return NextResponse.json({ room: publicRoom });
       }
 
       default:

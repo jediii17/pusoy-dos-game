@@ -54,9 +54,9 @@ export default function GameOverPage() {
 
   if (!mounted || !gameState) {
     return (
-      <div className="gameover-bg">
-        <div className="loading-spinner" />
-        <p style={{ color: '#fff', marginTop: '1rem' }}>Loading results…</p>
+      <div className="fixed inset-0 bg-zinc-950 flex flex-col items-center justify-center gap-4">
+        <div className="w-12 h-12 border-4 border-emerald-900/30 border-t-amber-400 rounded-full animate-spin" />
+        <p className="text-emerald-500/60 font-medium animate-pulse uppercase tracking-widest text-xs">Loading Results...</p>
       </div>
     );
   }
@@ -73,63 +73,75 @@ export default function GameOverPage() {
   const rankColors = ['#fdbf2d', '#C0C0C0', '#CD7F32', '#FF6B6B'];
 
   return (
-    <div className="gameover-bg">
-      <div className="gameover-trophy">
-        <Trophy size={64} color="var(--accent)" fill="var(--accent)" opacity={0.2} style={{ position: 'absolute', top: '-20px', left: '50%', transform: 'translateX(-50%)', zIndex: 0 }} />
-        <Trophy size={48} color="var(--accent)" fill="var(--accent)" />
-      </div>
-      <h1 className="gameover-title">Game Over!</h1>
-      <p className="gameover-subtitle">
-        The game has ended. <span className="winner-name" style={{ color: 'var(--accent)', fontWeight: '700' }}>{winner?.name}</span> finished first!
-      </p>
+    <div className="fixed inset-0 bg-zinc-950 flex items-center justify-center p-4">
+      {/* Background patterns if any */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.05),transparent_70%)] pointer-events-none" />
 
-      <div className="gameover-card">
-        <div className="gameover-card-header" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <Users size={18} color="var(--accent)" />
-          <span className="gameover-final-label">Final Standings</span>
+      <div className="bg-zinc-950 border border-emerald-900/50 rounded-2xl p-6 max-w-md w-full shadow-2xl relative z-10">
+        <div className="text-center mb-6">
+          <Trophy className="w-12 h-12 text-amber-400 mx-auto mb-3" />
+          <h2 
+            className="text-3xl font-bold text-white mb-1"
+            style={{ fontFamily: 'var(--font-fredoka), sans-serif' }}
+          >
+            Game Over!
+          </h2>
+          {winner && (
+            <p className="text-amber-400 font-bold text-lg">
+              {winner.name} wins!
+            </p>
+          )}
         </div>
 
-        <div className="gameover-table">
-          <div className="gameover-table-head">
-            <span>RANK</span>
-            <span>USERNAME</span>
-            <span>CARDS LEFT</span>
-          </div>
-          {sorted.map((player, i) => (
-            <div key={player.id} className={`gameover-row ${i === 0 ? 'winner-row' : ''} ${player.id === playerId ? 'you-row' : ''}`}>
-              <span className="rank-badge" style={{ background: rankColors[i], color: i === 0 ? '#000' : 'white' }}>
-                {i + 1}
-              </span>
-              <span className="player-name-col">
-                {i === 0 && <Trophy size={14} color="var(--accent)" fill="currentColor" style={{ marginRight: '6px' }} />}
-                {player.name}
-                {i === 0 && <span className="winner-tag">Winner</span>}
-                {player.finishOrder > 0 && i > 0 && (
-                  <span className="finish-tag">Finished {rankLabels[i]}</span>
-                )}
-                {player.id === playerId && <span className="you-tag">You</span>}
-              </span>
-              <span className={`cards-left ${player.cardCount === 0 ? 'zero' : 'nonzero'}`}>
-                {player.cardCount}
-              </span>
+        {/* Standings */}
+        <div className="space-y-2 mb-6 max-h-[40vh] overflow-y-auto pr-1">
+          {sorted.map((p, i) => (
+            <div
+              key={p.id}
+              className={`
+                flex items-center gap-3 p-3 rounded-lg
+                ${i === 0 ? 'bg-amber-400/10 border border-amber-400/30' : 'bg-emerald-900/20 border border-emerald-800/20'}
+              `}
+            >
+              <div className={`
+                w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
+                ${i === 0 ? 'bg-amber-400 text-black' : i === sorted.length - 1 ? 'bg-red-900 text-red-200' : 'bg-emerald-800 text-emerald-200'}
+              `}>
+                #{i + 1}
+              </div>
+              <div className="flex-1">
+                <div className="text-white text-sm font-medium">{p.name} {p.id === playerId && '(You)'}</div>
+                <div className="text-emerald-500/60 text-xs lowercase">
+                  {p.cardCount === 0 ? 'No cards left' : `${p.cardCount} cards left`}
+                </div>
+              </div>
+              {i === 0 && <span className="text-amber-400 text-xs font-bold uppercase tracking-wider">Winner</span>}
+              {i === sorted.length - 1 && sorted.length > 2 && <span className="text-red-400 text-xs uppercase">Last</span>}
             </div>
           ))}
         </div>
 
-        <div className="gameover-actions">
-          <button className="gameover-lobby-btn" onClick={backToLobby} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
-            <Home size={18} />
-            <span>Back to Lobby</span>
+        {/* Actions */}
+        <div className="flex gap-3">
+          <button
+            onClick={() => { sessionStorage.clear(); router.push('/'); }}
+            className="flex-1 px-4 py-2 rounded-lg bg-transparent border border-emerald-800/50 text-emerald-400 font-medium hover:bg-emerald-800/20 flex items-center justify-center gap-2 transition-colors"
+          >
+            <Home className="w-4 h-4" />
+            Home
           </button>
-          <button className="gameover-again-btn" onClick={playAgain} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
-            <RotateCcw size={18} />
-            <span>Play Again</span>
+          <button
+            onClick={playAgain}
+            className="flex-1 px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-500 text-black font-bold flex items-center justify-center gap-2 transition-colors"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Play Again
           </button>
         </div>
-      </div>
 
-      <div className="gameover-footer">
-        Room Code: #{code}
+        <div className="mt-6 text-center text-emerald-900/40 text-[10px] uppercase font-bold tracking-[0.2em]">
+          Room Code: {code}
+        </div>
       </div>
     </div>
   );

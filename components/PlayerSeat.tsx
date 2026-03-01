@@ -1,6 +1,13 @@
 'use client';
 
+import { Trophy } from 'lucide-react';
 import CardComponent from './Card';
+
+interface Card {
+  rank: string;
+  suit: string;
+  id: string;
+}
 
 interface GamePlayer {
   id: string; name: string; connected: boolean; position: number;
@@ -11,15 +18,10 @@ interface PlayerSeatProps {
   player: GamePlayer;
   layout: 'top' | 'left' | 'right';
   isCurrentTurn: boolean;
+  isWinning?: boolean;
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  waiting: 'waiting…',
-  passed: 'passed',
-  finished: 'finished',
-};
-
-export default function PlayerSeat({ player, layout, isCurrentTurn }: PlayerSeatProps) {
+export default function PlayerSeat({ player, layout, isCurrentTurn, isWinning }: PlayerSeatProps) {
   const statusText = player.finished
     ? `#${player.finishOrder} finished!`
     : player.passed
@@ -29,7 +31,6 @@ export default function PlayerSeat({ player, layout, isCurrentTurn }: PlayerSeat
     : 'waiting…';
 
   const faceDownCount = Math.min(player.cardCount, 5);
-  const extraCount = player.cardCount - faceDownCount;
 
   const initials = player.name
     .split(' ')
@@ -40,7 +41,14 @@ export default function PlayerSeat({ player, layout, isCurrentTurn }: PlayerSeat
 
   return (
     <div className={`player-seat seat-${layout} ${isCurrentTurn ? 'active-seat' : ''} ${player.finished ? 'finished-seat' : ''}`}>
-      <div className="seat-avatar">{initials}</div>
+      <div className="seat-avatar">
+        {initials}
+        {isWinning && !player.finished && (
+          <div className="winning-crown">
+            <Trophy size={14} fill="#FFD700" color="#FFD700" className="animate-bounce" />
+          </div>
+        )}
+      </div>
       <div className="seat-info">
         <span className={`seat-name ${isCurrentTurn ? 'active-name' : ''}`}>{player.name}</span>
         <span className={`seat-status ${player.passed ? 'passed-status' : isCurrentTurn ? 'playing-status' : ''}`}>
@@ -49,15 +57,21 @@ export default function PlayerSeat({ player, layout, isCurrentTurn }: PlayerSeat
         {!player.connected && <span className="seat-disconnected">⚠ disconnected</span>}
       </div>
       <div className="seat-cards">
-        {Array.from({ length: faceDownCount }).map((_, i) => (
+        {Array.from({ length: Math.min(player.cardCount, 6) }).map((_, i) => (
           <div
             key={i}
             className="seat-facedown-card"
-            style={{ transform: `rotate(${(i - 2) * 5}deg) translateX(${i * 4}px)` }}
+            style={{ 
+              transform: `rotate(${(i - 2.5) * 8}deg) translateX(${i * 6}px)`,
+              marginLeft: i === 0 ? 0 : '-35px',
+              zIndex: i
+            }}
           />
         ))}
         {player.cardCount > 0 && (
-          <span className="seat-card-count">+{player.cardCount}</span>
+          <div className="seat-card-count">
+            {player.cardCount}
+          </div>
         )}
       </div>
     </div>
