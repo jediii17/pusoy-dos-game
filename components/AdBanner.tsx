@@ -31,7 +31,7 @@ export default function AdBanner({
   if (!pubId || !dataAdSlot) return null;
 
   return (
-    <div className={`ad-container ${className}`} style={{ overflow: 'hidden', minHeight: '90px' }}>
+    <div className={className}>
       <ins
         ref={adRef}
         className="adsbygoogle"

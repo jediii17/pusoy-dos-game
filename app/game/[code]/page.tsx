@@ -249,8 +249,8 @@ export default function GamePage() {
       <div className="flex justify-center p-2">
         <AdBanner 
           dataAdSlot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_GAME || ""}
-          dataAdFormat="rectangle"
-          className="rounded-lg overflow-hidden border border-emerald-900/20 bg-emerald-950/20"
+          dataAdFormat="auto"
+          className="w-full max-w-[728px]"
         />
       </div>
 

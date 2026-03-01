@@ -271,34 +271,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   font-weight: 500;
 }
 
-/* ─────────────────────────────────────────────────────────
-   ADVERTISEMENTS
-   ───────────────────────────────────────────────────────── */
-.ad-container {
-  width: 100%;
-  max-width: 728px;
-  margin: 0 auto;
-  border-radius: 8px;
-  background: rgba(2, 44, 34, 0.3);
-  border: 1px solid rgba(6, 78, 59, 0.2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 90px;
-  position: relative;
-  overflow: hidden;
-}
-
-.ad-container::before {
-  content: "Advertisement";
-  position: absolute;
-  top: 2px;
-  right: 5px;
-  font-size: 10px;
-  color: #064e3b;
-  opacity: 0.5;
-  pointer-events: none;
-}
 
 /* ─────────────────────────────────────────────────────────
    WAITING ROOM (Lobby)

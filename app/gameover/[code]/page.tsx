@@ -143,7 +143,7 @@ export default function GameOverPage() {
         <div className="mt-4 border-t border-emerald-900/20 pt-4">
           <AdBanner 
             dataAdSlot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_GAMEOVER || ""}
-            className="rounded-lg overflow-hidden border border-emerald-900/10"
+            className="w-full"
           />
         </div>
 
