@@ -74,7 +74,7 @@ export default function LandingPage() {
 
       <div className="landing-card">
         <div className="form-group">
-          <label className="input-label">Enter your Username</label>
+          <label className="input-label">Username</label>
           <input 
             className="custom-input" 
             placeholder="Enter your name" 
@@ -151,7 +151,7 @@ export default function LandingPage() {
         </button>
       </div>
 
-      <footer className="landing-footer">Filipino Card Game • 3-4 Players</footer>
+      <footer className="landing-footer">Filipino Card Game • 3-4 Players <br/><span className="text-xs opacity-75 mt-1 block">Developed by Kairo</span></footer>
     </main>
   );
 }
