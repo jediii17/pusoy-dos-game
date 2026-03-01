@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { usePusher } from '@/app/hooks/usePusher';
 import { Trophy, RotateCcw, Home, Users, ArrowLeft } from 'lucide-react';
+import AdBanner from '@/components/AdBanner';
 
 interface GamePlayer {
   id: string; name: string; cardCount: number;
@@ -137,6 +138,13 @@ export default function GameOverPage() {
             <RotateCcw className="w-4 h-4" />
             Play Again
           </button>
+        </div>
+
+        <div className="mt-4 border-t border-emerald-900/20 pt-4">
+          <AdBanner 
+            dataAdSlot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_GAMEOVER || ""}
+            className="rounded-lg overflow-hidden border border-emerald-900/10"
+          />
         </div>
 
         <div className="mt-6 text-center text-emerald-900/40 text-[10px] uppercase font-bold tracking-[0.2em]">

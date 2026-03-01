@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Users, ArrowRight, Spade, LogIn } from 'lucide-react';
+import { useRouter } from "next/navigation";
+import { Spade, Plus, Users, ArrowRight, LogIn } from "lucide-react";
+import AdBanner from "@/components/AdBanner";
 
 export default function LandingPage() {
   const router = useRouter();
@@ -86,16 +87,24 @@ export default function LandingPage() {
           />
         </div>
 
-        <div className="mode-toggle">
+        <div role="tablist" aria-orientation="horizontal" className="mode-toggle">
           <button 
+            type="button"
+            role="tab"
+            aria-selected={mode === 'create'}
             className={`mode-btn ${mode === 'create' ? 'active' : ''}`}
             onClick={() => setMode('create')}
+            data-state={mode === 'create' ? 'active' : 'inactive'}
           >
             Create Game
           </button>
           <button 
+            type="button"
+            role="tab"
+            aria-selected={mode === 'join'}
             className={`mode-btn ${mode === 'join' ? 'active' : ''}`}
             onClick={() => setMode('join')}
+            data-state={mode === 'join' ? 'active' : 'inactive'}
           >
             Join Game
           </button>
@@ -155,6 +164,12 @@ export default function LandingPage() {
         <footer className="landing-footer">Filipino Card Game • 3-4 Players</footer>
         <span className="landing-footer-dev">Developed by Kairo</span>
       </div>
+
+      {/* Landing Page Ad Slot */}
+      <AdBanner 
+        dataAdSlot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_LANDING || ""}
+        className="mt-8"
+      />
     </main>
   );
 }

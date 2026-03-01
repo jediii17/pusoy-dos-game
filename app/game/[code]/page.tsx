@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import CardComponent from '@/components/Card';
 import PlayerSeat from '@/components/PlayerSeat';
 import LastPlayArea from '@/components/LastPlayArea';
+import AdBanner from '@/components/AdBanner';
 
 import { usePusher } from '@/app/hooks/usePusher';
 import { 
@@ -243,6 +244,15 @@ export default function GamePage() {
           {darkMode ? <Sun size={18} /> : <Moon size={18} />}
         </button>
       </header>
+
+      {/* Game Page Top Ad Slot */}
+      <div className="flex justify-center p-2">
+        <AdBanner 
+          dataAdSlot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_GAME || ""}
+          dataAdFormat="rectangle"
+          className="rounded-lg overflow-hidden border border-emerald-900/20 bg-emerald-950/20"
+        />
+      </div>
 
       {/* Game Table */}
       <div className="game-table">

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import { usePusher } from '@/app/hooks/usePusher';
 import { Users, Copy, CheckCircle, Play, LogOut, ArrowRight, Loader2, Spade, LogIn } from 'lucide-react';
+import AdBanner from "@/components/AdBanner";
 
 interface Player {
   id: string;
@@ -412,6 +413,12 @@ export default function RoomPage() {
           </button>
         </div>
       </div>
+
+      {/* Room Page Ad Slot */}
+      <AdBanner 
+        dataAdSlot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_ROOM || ""}
+        className="mt-6"
+      />
 
       {isDissolved && (
         <div className="modal-overlay">
