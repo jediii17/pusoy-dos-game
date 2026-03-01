@@ -635,7 +635,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 280px; /* Ensure table doesn't disappear on short screens */
+  min-height: 240px; /* Reduced from 280px to allow more flex */
 }
 
 .game-table::before {
@@ -700,14 +700,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 
 /* Seat positions */
-.seat-top { top: 1.5rem; left: 50%; transform: translateX(-50%); flex-direction: column; }
-.seat-left { left: 4%; top: 35%; transform: translateY(-50%); flex-direction: column; }
-.seat-right { right: 4%; top: 35%; transform: translateY(-50%); flex-direction: column; }
+.seat-top { top: 0.75rem; left: 50%; transform: translateX(-50%); flex-direction: column; }
+.seat-left { left: 4%; top: 30%; transform: translateY(-50%); flex-direction: column; }
+.seat-right { right: 4%; top: 30%; transform: translateY(-50%); flex-direction: column; }
 
 @media (max-width: 768px) {
-  .seat-left { left: 2%; top: 25%; }
-  .seat-right { right: 2%; top: 25%; }
-  .seat-top { top: 1rem; }
+  .seat-left { left: 2%; top: 20%; }
+  .seat-right { right: 2%; top: 20%; }
+  .seat-top { top: 0.5rem; }
 }
 
 @media (max-height: 700px) {
@@ -1112,11 +1112,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  height: 180px;
+  height: 150px; /* Reduced from 180px */
   padding: 0 40px;
   position: relative;
   /* Premium overlapping cards */
-  margin-top: -20px;
+  margin-top: -15px;
 }
 
 @media (max-height: 750px), (max-width: 640px) {
