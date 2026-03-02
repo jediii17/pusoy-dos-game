@@ -191,9 +191,25 @@ export async function broadcast(roomCode: string, type: string, payload: any) {
 export function advanceTurn(gs: GameState) {
   const total = gs.players.length;
   let next = (gs.currentPlayerIndex + 1) % total;
+  
   for (let attempts = 0; attempts < total; attempts++) {
     const p = gs.players[next];
     if (!p.finished && !p.passed) {
+      gs.currentPlayerIndex = next;
+      return;
+    }
+    next = (next + 1) % total;
+  }
+
+  // If we get here, it means everyone else is either finished or passed.
+  // We must reset the cycle so the round can continue (the leader gets to lead again).
+  gs.players.forEach(p => { if (!p.finished) p.passed = false; });
+  gs.lastPlay = null;
+
+  // Find the next non-finished player to take the lead
+  next = (gs.currentPlayerIndex + 1) % total;
+  for (let attempts = 0; attempts < total; attempts++) {
+    if (!gs.players[next].finished) {
       gs.currentPlayerIndex = next;
       return;
     }
@@ -226,9 +242,11 @@ export async function playCards(code: string, playerId: string, cardIds: string[
   const otherActivePlayers = gs.players.filter(p => !p.finished && !p.passed && p.id !== playerId);
   
   // Safety: If everyone else passed or finished, the round should have reset.
-  // We clear lastPlay to allow the player to lead freely.
+  // We clear lastPlay and reset passed status to allow the player to lead freely
+  // and ensure others can play against this new lead.
   if (otherActivePlayers.length === 0) {
     gs.lastPlay = null;
+    gs.players.forEach(p => { if (!p.finished) p.passed = false; });
   }
 
   if (gs.lastPlay !== null) {

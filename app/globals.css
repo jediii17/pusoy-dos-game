@@ -48,11 +48,21 @@ body {
 button { cursor: pointer; font-family: inherit; border: none; outline: none; }
 button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+.game-container.playing {
+  height: 100dvh;
+  height: 100dvh; /* Use dynamic viewport height for mobile/Safari consistency */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  background: #020a08;
+}
+
 /* ─────────────────────────────────────────────────────────
    LANDING PAGE (Pusoy Dos Start)
 ───────────────────────────────────────────────────────── */
 .landing-bg {
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -646,32 +656,39 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Table Felt */
 .game-table-container {
-  flex: 1 1 0%; /* Ensure it can shrink */
-  display: flex;
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) auto minmax(120px, 1fr);
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    ". top ."
+    "left center right";
   align-items: center;
-  justify-content: center;
-  position: relative;
-  padding: 7rem 2rem 1rem; /* Increased top padding to provide better separation from header */
+  justify-items: center;
+  padding: 1rem 2rem;
   overflow: visible;
-  min-height: 0;
-  flex-basis: auto; /* Safari compatibility */
+  position: relative;
+  z-index: 1;
 }
 
 .game-table {
-  position: relative;
+  grid-area: center;
   width: 100%;
-  max-width: 1100px; /* Wider table */
+  max-width: 1100px;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .table-felt {
-  width: 90%;
-  height: 300px; /* Dynamic height */
+  width: 100%;
+  aspect-ratio: 2.5 / 1;
+  max-height: 40vh;
+  min-height: 180px;
   background: radial-gradient(circle at center, #0a3d2e 0%, #041a14 60%, #000000 100%);
   border: 2px solid rgba(255,255,255,0.08);
-  border-radius: 999px; /* Perfect pill shape always */
+  border-radius: 999px;
   position: relative;
   display: flex;
   align-items: center;
@@ -716,18 +733,19 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* ─────────────────────────────────────────────────────────
    PLAYER SEATS (OPPONENTS)
 ───────────────────────────────────────────────────────── */
-.player-seat {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(8px);
-  border-radius: 12px;
-  border: 1px solid rgba(255,255,255,0.08);
-  transition: border-color 0.3s ease, box-shadow 0.3s ease;
-  z-index: 6;
+/* Seat positions - Using Grid Areas */
+.seat-top { 
+  grid-area: top;
+  flex-direction: column;
+  margin-bottom: 1rem;
+}
+.seat-left { 
+  grid-area: left;
+  flex-direction: column;
+}
+.seat-right { 
+  grid-area: right;
+  flex-direction: column;
 }
 
 .player-seat.active-seat {
@@ -740,29 +758,40 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   border-color: rgba(255,255,255,0.04);
 }
 
-/* Seat positions - TRULY outside the green felt */
-.seat-top { top: 0; left: 50%; transform: translate(-50%, -105%); flex-direction: column; }
-.seat-left { left: -0.5rem; top: 50%; transform: translate(-100%, -50%); flex-direction: column; }
-.seat-right { right: -0.5rem; top: 50%; transform: translate(100%, -50%); flex-direction: column; }
-
-@media (max-width: 950px) {
-  .seat-left { left: 0; top: 0; transform: translate(-90%, -105%); }
-  .seat-right { right: 0; top: 0; transform: translate(90%, -105%); }
-  .seat-top { top: 0; transform: translate(-50%, -115%); }
+/* Remove old absolute positioning and transforms that break grid flow */
+.player-seat {
+  position: relative; /* Changed from absolute to relative for grid placement */
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(8px);
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,0.08);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  z-index: 6;
 }
 
-@media (max-width: 768px) {
-  .seat-left { left: 5%; top: 0; transform: translate(0, -110%); }
-  .seat-right { right: 5%; top: 0; transform: translate(0, -110%); }
-  .seat-top { top: 0; transform: translate(-50%, -110%); }
+@media (max-width: 950px) {
+  .game-table-container {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto 1fr;
+    grid-template-areas:
+      "left right"
+      "top top"
+      "center center";
+    padding: 0.5rem;
+  }
+  .seat-top { margin-bottom: 0.5rem; }
+  .table-felt { aspect-ratio: 2 / 1; }
 }
 
 @media (max-height: 700px) {
-  .game-table-container { padding: 4.5rem 1rem 0.5rem; }
-  .table-felt { height: clamp(120px, 25vh, 220px); }
-  .seat-top { transform: translate(-50%, -102%); }
-  .seat-left { transform: translate(-100%, -50%); }
-  .seat-right { transform: translate(100%, -50%); }
+  .game-table-container { padding: 0.5rem 1rem; }
+  .table-felt { aspect-ratio: 3 / 1; min-height: 150px; }
+  .seat-cards { margin-top: 0.2rem; }
+  .seat-facedown-card { width: 35px; height: 50px; }
 }
 
 .seat-avatar {
@@ -1104,13 +1133,17 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .player-area {
   background: rgba(13,17,23,0.97);
   border-top: 1px solid rgba(255,255,255,0.08);
-  padding: 2rem 1rem 2rem; /* Increased bottom padding to 2rem to ensure cards are fully visible */
+  padding: 1rem 1rem 1.5rem; /* Reduced padding for better vertical fit */
   flex-shrink: 0;
   z-index: 20;
 }
 
 @media (max-width: 640px) {
-  .player-area { padding: 0.5rem 0.75rem 1.5rem; }
+  .player-area { padding: 0.5rem 0.75rem 1rem; }
+}
+
+@media (max-height: 700px) {
+  .player-area { padding: 0.5rem 1rem 0.75rem; }
 }
 
 .player-info-bar {
@@ -1211,7 +1244,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   align-items: center;
   justify-content: center;
   gap: 1.25rem;
-  margin: 0.15rem auto 0.9rem;
+  margin: 0 auto 0.75rem; /* Slightly reduced margin */
   padding: 0.4rem 1.25rem;
   background: rgba(255,255,255,0.03);
   border-radius: 12px;

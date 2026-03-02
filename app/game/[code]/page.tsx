@@ -291,18 +291,18 @@ export default function GamePage() {
               <LastPlayArea lastPlay={gameState.lastPlay} isFirstPlay={gameState.isFirstPlay} />
             </div>
           </div>
-
-          {/* Opponents (Positioned relative to table-container but "outside" felt) */}
-          {opponentLayouts.map(({ player, layout }) => (
-            <PlayerSeat
-              key={player.id}
-              player={player}
-              layout={layout}
-              isCurrentTurn={gameState.players[gameState.currentPlayerIndex]?.id === player.id}
-              isWinning={player.cardCount === minCards && player.cardCount > 0}
-            />
-          ))}
         </div>
+
+        {/* Opponents (Placed as direct children of grid-container) */}
+        {opponentLayouts.map(({ player, layout }) => (
+          <PlayerSeat
+            key={player.id}
+            player={player}
+            layout={layout}
+            isCurrentTurn={gameState.players[gameState.currentPlayerIndex]?.id === player.id}
+            isWinning={player.cardCount === minCards && player.cardCount > 0}
+          />
+        ))}
       </div>
 
       {/* Notifications */}
