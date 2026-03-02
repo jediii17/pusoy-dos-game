@@ -18,13 +18,21 @@ export default function AdBanner({
   const adRef = useRef<HTMLModElement>(null);
 
   useEffect(() => {
-    try {
-      // @ts-ignore
-      (window.adsbygoogle = window.adsbygoogle || []).push({});
-    } catch (err) {
-      console.error('AdSense error:', err);
-    }
-  }, []);
+    // We use a small delay to ensure the DOM has calculated widths correctly, 
+    // especially in flex containers.
+    const timer = setTimeout(() => {
+      try {
+        if (adRef.current && adRef.current.offsetWidth > 0) {
+          // @ts-ignore
+          (window.adsbygoogle = window.adsbygoogle || []).push({});
+        }
+      } catch (err) {
+        console.error('AdSense error:', err);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [dataAdSlot]); // Re-run if slot changes (e.g. navigation)
 
   const pubId = process.env.NEXT_PUBLIC_ADSENSE_PUB_ID;
 

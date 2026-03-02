@@ -49,7 +49,6 @@ export default function GamePage() {
   const [sortMode, setSortMode] = useState<'rank' | 'suit'>('rank');
   const [error, setError] = useState('');
   const [notification, setNotification] = useState('');
-  const [darkMode, setDarkMode] = useState(false);
   const [isDissolved, setIsDissolved] = useState(false);
 
   const playerId = typeof window !== 'undefined' ? sessionStorage.getItem('playerId') || '' : '';
@@ -61,46 +60,40 @@ export default function GamePage() {
   };
 
   const onPusherMessage = useCallback((msg: any) => {
-    if (msg.type === 'game_state') {
+    if (msg.type === 'game_state' || msg.type === 'game_over') {
       setGameState(prev => {
         if (!prev) return msg.gameState;
         const newPlayers = msg.gameState.players.map((p: any) => {
           if (p.id === playerId) {
-            // ONLY update the hand if the server explicitly sent one (not undefined/stripped)
             const incomingHand = p.hand;
             const existingHand = prev.players.find(oldP => oldP.id === playerId)?.hand;
-            return { 
-              ...p, 
-              hand: incomingHand !== undefined ? incomingHand : existingHand 
-            };
+            return { ...p, hand: incomingHand !== undefined ? incomingHand : existingHand };
           }
           return p;
         });
         return { ...msg.gameState, players: newPlayers };
       });
+      if (msg.type === 'game_over') {
+        setTimeout(() => router.push(`/gameover/${code}`), 2000);
+      }
       setError('');
-    } else if (msg.type === 'game_over') {
-      setGameState(prev => {
-        if (!prev) return msg.gameState;
-        const newPlayers = msg.gameState.players.map((p: any) => {
-          if (p.id === playerId) {
-            // For game_over, we expect the hand to be present if the player hasn't finished
-            // but still preserve if it's stripped for some reason.
-            const incomingHand = p.hand;
-            const existingHand = prev.players.find(oldP => oldP.id === playerId)?.hand;
-            return { 
-              ...p, 
-              hand: incomingHand !== undefined ? incomingHand : existingHand 
-            };
-          }
-          return p;
-        });
-        return { ...msg.gameState, players: newPlayers };
-      });
-      setTimeout(() => router.push(`/gameover/${code}`), 2000);
     } else if (msg.type === 'room_state') {
-      if (msg.room.gameState) setGameState(msg.room.gameState);
-      else router.push(`/room/${code}`);
+      if (msg.room.gameState) {
+        setGameState(prev => {
+          if (!prev) return msg.room.gameState;
+          const newPlayers = msg.room.gameState.players.map((p: any) => {
+            if (p.id === playerId) {
+              const incomingHand = p.hand;
+              const existingHand = prev.players.find(oldP => oldP.id === playerId)?.hand;
+              return { ...p, hand: incomingHand !== undefined ? incomingHand : existingHand };
+            }
+            return p;
+          });
+          return { ...msg.room.gameState, players: newPlayers };
+        });
+      } else {
+        router.push(`/room/${code}`);
+      }
     } else if (msg.type === 'error') {
       setError(msg.message);
       setTimeout(() => setError(''), 3000);
@@ -109,7 +102,7 @@ export default function GamePage() {
     } else if (msg.type === 'room_dissolved') {
       setIsDissolved(true);
     }
-  }, [code, router]);
+  }, [code, router, playerId, showNotif]);
 
   const { sendAction } = usePusher(code, onPusherMessage);
 
@@ -183,12 +176,41 @@ export default function GamePage() {
   const iAmPassed = me?.passed || false;
 
   // Arrange opponents by position: top, left, right
+  // Arrange opponents by position relative to 'me'
   const getOpponentLayout = () => {
-    const others = gameState.players.filter(p => p.id !== playerId);
-    const myPos = me?.position ?? 0;
-    const sorted = [...others].sort((a, b) => a.position - b.position);
-    const positions = ['top', 'left', 'right'] as const;
-    return sorted.map((p, i) => ({ player: p, layout: positions[i] || 'top' }));
+    const totalPlayers = gameState.players.length;
+    
+    // Sort all players by position
+    const allPlayersSorted = [...gameState.players].sort((a, b) => a.position - b.position);
+    
+    // Find my index in the sorted list
+    const myIndex = allPlayersSorted.findIndex(p => p.id === playerId);
+    
+    // Get others in order starting after me (wrap around)
+    const othersOrdered = [];
+    for (let i = 1; i < totalPlayers; i++) {
+        othersOrdered.push(allPlayersSorted[(myIndex + i) % totalPlayers]);
+    }
+
+    if (totalPlayers === 4) {
+      // 4 players: Left, Top, Right
+      return [
+        { player: othersOrdered[0], layout: 'left' as const },
+        { player: othersOrdered[1], layout: 'top' as const },
+        { player: othersOrdered[2], layout: 'right' as const },
+      ];
+    } else if (totalPlayers === 3) {
+      // 3 players: Left, Right (skip Top)
+      return [
+        { player: othersOrdered[0], layout: 'left' as const },
+        { player: othersOrdered[1], layout: 'right' as const },
+      ];
+    } else {
+      // 2 players: Top
+      return [
+        { player: othersOrdered[0], layout: 'top' as const },
+      ];
+    }
   };
 
   const activePlayers = gameState.players.filter(p => !p.finished);
@@ -212,14 +234,10 @@ export default function GamePage() {
   });
 
   return (
-    <div className={`game-root ${darkMode ? 'dark' : ''}`}>
-      {/* Header */}
-      <header className="game-header">
-        <div className="game-header-logo">
-          <span style={{ color: 'var(--accent)' }}>🃏</span>
-          <span style={{ fontFamily: 'var(--font-fredoka)' }}>Pusoy Dos</span>
-        </div>
-        <div className="game-header-info">
+    <div className="game-root">
+      <div className="floating-game-info">
+        <div className="floating-logo">Pusoy Dos</div>
+        <div className="floating-turn-info">
           {isMyTurn && !iAmFinished && !iAmPassed && (
             <span className="your-turn-badge">
               <Play size={12} fill="currentColor" />
@@ -240,13 +258,23 @@ export default function GamePage() {
             </span>
           )}
         </div>
-        <button className="dark-toggle" onClick={() => setDarkMode(d => !d)}>
-          {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-        </button>
-      </header>
+      </div>
+      {/* Mobile Landscape Orientation Lock */}
+      <div className="landscape-overlay">
+        <div className="landscape-content">
+          <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="rotate-icon">
+            <rect x="2" y="6" width="20" height="12" rx="2" transform="rotate(90 12 12)" />
+            <path d="M12 2A10 10 0 0 1 22 12" />
+            <polygon points="22 12 18 10 18 14 22 12" />
+          </svg>
+          <h2 style={{ fontFamily: 'var(--font-fredoka)', fontSize: '2rem', marginTop: '1rem', color: 'white' }}>Rotate Device</h2>
+          <p style={{ color: 'rgba(255,255,255,0.7)', marginTop: '0.5rem' }}>Please rotate your phone to landscape mode for the best playing experience.</p>
+        </div>
+      </div>
+
 
       {/* Game Page Top Ad Slot */}
-      <div className="flex justify-center p-2">
+      <div className="flex justify-center pb-1">
         <AdBanner 
           dataAdSlot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_GAME || ""}
           dataAdFormat="auto"
@@ -254,22 +282,26 @@ export default function GamePage() {
         />
       </div>
 
-      {/* Game Table */}
-      <div className="game-table">
-        {/* Opponents */}
-        {opponentLayouts.map(({ player, layout }) => (
-          <PlayerSeat
-            key={player.id}
-            player={player}
-            layout={layout}
-            isCurrentTurn={gameState.players[gameState.currentPlayerIndex]?.id === player.id}
-            isWinning={player.cardCount === minCards && player.cardCount > 0}
-          />
-        ))}
+      {/* Game Table Wrapper */}
+      <div className="game-table-container">
+        <div className="game-table">
+          <div className="table-felt">
+            {/* Center: Last Play */}
+            <div className="game-center">
+              <LastPlayArea lastPlay={gameState.lastPlay} isFirstPlay={gameState.isFirstPlay} />
+            </div>
+          </div>
 
-        {/* Center: Last Play */}
-        <div className="game-center">
-          <LastPlayArea lastPlay={gameState.lastPlay} isFirstPlay={gameState.isFirstPlay} />
+          {/* Opponents (Positioned relative to table-container but "outside" felt) */}
+          {opponentLayouts.map(({ player, layout }) => (
+            <PlayerSeat
+              key={player.id}
+              player={player}
+              layout={layout}
+              isCurrentTurn={gameState.players[gameState.currentPlayerIndex]?.id === player.id}
+              isWinning={player.cardCount === minCards && player.cardCount > 0}
+            />
+          ))}
         </div>
       </div>
 
@@ -279,7 +311,9 @@ export default function GamePage() {
 
       {/* Player Hand */}
       <div className="player-area">
-        <div className="player-area-header">
+ 
+        {/* Action bar (Now with Sort buttons) */}
+        <div className="action-bar">
           <div className="player-info-bar">
             <div className="player-avatar-sm" style={{ position: 'relative' }}>
               {playerName[0]?.toUpperCase()}
@@ -289,15 +323,41 @@ export default function GamePage() {
                 </div>
               )}
             </div>
-            <div>
-              <span className="player-name-label">You</span>
+            <div className="player-text-info">
+              <span className="player-name-label">{playerName}</span>
               <span className="player-card-count">{myHand.length} Cards</span>
             </div>
           </div>
-          <div className="sort-toggle">
-            <button className={`sort-btn ${sortMode === 'rank' ? 'active' : ''}`} onClick={() => setSortMode('rank')}>Sort by Rank</button>
-            <button className={`sort-btn ${sortMode === 'suit' ? 'active' : ''}`} onClick={() => setSortMode('suit')}>Sort by Suit</button>
+
+          <div className="sort-group">
+            <button className={`sort-btn ${sortMode === 'rank' ? 'active' : ''}`} onClick={() => setSortMode('rank')}>Rank</button>
+            <button className={`sort-btn ${sortMode === 'suit' ? 'active' : ''}`} onClick={() => setSortMode('suit')}>Suit</button>
           </div>
+
+          <div className="button-divider"></div>
+
+          <button
+            className="pass-btn"
+            onClick={pass}
+            disabled={!isMyTurn || iAmFinished || iAmPassed || gameState.lastPlay === null}
+          >
+            <SkipForward size={16} />
+            <span>Pass</span>
+          </button>
+          <button
+            className="play-btn"
+            style={{ 
+               background: !isMyTurn || iAmFinished || selectedCards.size === 0 ? '#02241a' : 'var(--accent)',
+               color: !isMyTurn || iAmFinished || selectedCards.size === 0 ? '#1a3a2e' : '#000',
+               boxShadow: !isMyTurn || iAmFinished || selectedCards.size === 0 ? 'none' : '0 8px 20px var(--accent-glow)',
+               opacity: 1
+            }}
+            onClick={playCards}
+            disabled={!isMyTurn || iAmFinished || selectedCards.size === 0}
+          >
+            <Play size={16} fill="currentColor" />
+            <span>Play ({selectedCards.size})</span>
+          </button>
         </div>
 
         <div className="hand-container">
@@ -315,33 +375,6 @@ export default function GamePage() {
           )}
         </div>
 
-        {/* Action bar */}
-        <div className="action-bar">
-          <button
-            className="pass-btn"
-            onClick={pass}
-            disabled={!isMyTurn || iAmFinished || iAmPassed || gameState.lastPlay === null}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-          >
-            <SkipForward size={18} />
-            <span>Pass</span>
-          </button>
-          <button
-            className="play-btn"
-            style={{ 
-               background: !isMyTurn || iAmFinished || selectedCards.size === 0 ? '#02241a' : 'var(--accent)',
-               color: !isMyTurn || iAmFinished || selectedCards.size === 0 ? '#1a3a2e' : '#000',
-               boxShadow: !isMyTurn || iAmFinished || selectedCards.size === 0 ? 'none' : '0 10px 30px var(--accent-glow)',
-               opacity: 1,
-               display: 'flex', alignItems: 'center', gap: '0.5rem'
-            }}
-            onClick={playCards}
-            disabled={!isMyTurn || iAmFinished || selectedCards.size === 0}
-          >
-            <Play size={18} fill="currentColor" />
-            <span>Play ({selectedCards.size})</span>
-          </button>
-        </div>
       </div>
 
       {isDissolved && (
