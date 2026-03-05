@@ -92,10 +92,38 @@ export async function createRoom(maxPlayers: 3 | 4, hostId: string, hostName: st
   return room;
 }
 
+/**
+ * Reset a room for a new game: keep the code and maxPlayers,
+ * but clear all players and gameState. The first player to
+ * join after reset becomes the new host.
+ * 
+ * IDEMPOTENT: If the room was already reset (no gameState or
+ * gameState not finished), this is a no-op so multiple players
+ * clicking "Play Again" won't wipe each other out.
+ */
+export async function resetRoom(code: string): Promise<{ success: boolean; error?: string }> {
+  const room = await getRoom(code);
+  if (!room) return { success: false, error: 'Room not found' };
+
+  // Only reset if the game is finished; skip if already reset
+  if (!room.gameState || room.gameState.phase !== 'finished') {
+    return { success: true };
+  }
+
+  room.players = [];
+  room.gameState = null;
+  room.hostId = '';
+  room.createdAt = Date.now();
+  await saveRoom(room);
+  await broadcast(code, 'room_reset', { code });
+  return { success: true };
+}
+
 export async function joinRoom(code: string, playerId: string, playerName: string): Promise<{ room?: Room; error?: string }> {
   const room = await getRoom(code);
   if (!room) return { error: 'Room not found' };
   
+  // Allow joining if game is finished (play again), but NOT if actively playing
   if (room.gameState && room.gameState.phase === 'playing') {
     return { room, error: 'Game already in progress' };
   }
@@ -108,6 +136,7 @@ export async function joinRoom(code: string, playerId: string, playerName: strin
   const existing = room.players.find(p => p.id === playerId);
   if (existing) {
     existing.connected = true;
+    existing.name = playerName; // Allow name update on rejoin
     await saveRoom(room);
     await broadcast(code, 'room_state', { room: getPublicRoomState(room, '') });
     return { room: getPublicRoomState(room, playerId) };
@@ -115,6 +144,12 @@ export async function joinRoom(code: string, playerId: string, playerName: strin
 
   const position = room.players.length;
   room.players.push({ id: playerId, name: playerName, connected: true, position });
+
+  // First player to join becomes the host
+  if (!room.hostId || room.hostId === '') {
+    room.hostId = playerId;
+  }
+
   await saveRoom(room);
   await broadcast(code, 'room_state', { room: getPublicRoomState(room, '') });
   return { room: getPublicRoomState(room, playerId) };
@@ -188,33 +223,75 @@ export async function broadcast(roomCode: string, type: string, payload: any) {
   await pusher.trigger(`room-${roomCode}`, type, payload);
 }
 
+/**
+ * Reset the round: clear all passed flags, nullify lastPlay,
+ * and set the new round leader to `leaderIdx`.
+ * If leaderIdx is finished, find the next non-finished player.
+ */
+export function resetRound(gs: GameState, leaderIdx: number) {
+  gs.players.forEach(p => { if (!p.finished) p.passed = false; });
+  gs.lastPlay = null;
+
+  // Verify the leader is still active; if finished, find the next non-finished.
+  if (!gs.players[leaderIdx].finished) {
+    gs.currentPlayerIndex = leaderIdx;
+    gs.roundStarter = leaderIdx;
+    return;
+  }
+  const total = gs.players.length;
+  let next = (leaderIdx + 1) % total;
+  for (let i = 0; i < total; i++) {
+    if (!gs.players[next].finished) {
+      gs.currentPlayerIndex = next;
+      gs.roundStarter = next;
+      return;
+    }
+    next = (next + 1) % total;
+  }
+}
+
 export function advanceTurn(gs: GameState) {
   const total = gs.players.length;
   let next = (gs.currentPlayerIndex + 1) % total;
   
+  // Look for the next player who hasn't finished or passed,
+  // but EXCLUDE the current player — we need a *different* player to advance to.
   for (let attempts = 0; attempts < total; attempts++) {
     const p = gs.players[next];
-    if (!p.finished && !p.passed) {
+    if (!p.finished && !p.passed && next !== gs.currentPlayerIndex) {
       gs.currentPlayerIndex = next;
+
+      // CYCLE DETECTION: If the turn just returned to the roundStarter,
+      // a full cycle has completed.
+      if (next === gs.roundStarter) {
+        const lastAttackerId = gs.lastPlay?.playerId;
+        const lastAttackerIdx = lastAttackerId
+          ? gs.players.findIndex(pl => pl.id === lastAttackerId)
+          : -1;
+
+        if (lastAttackerIdx !== -1 && lastAttackerIdx === next) {
+          // The roundStarter IS the last attacker — nobody beat their play.
+          // They win the round → free lead.
+          resetRound(gs, next);
+        } else {
+          // Cycle complete but someone else is the last attacker.
+          // Clear all passes for a new cycle, and update roundStarter
+          // to the last attacker so the NEXT cycle tracks from them.
+          gs.players.forEach(pl => { if (!pl.finished) pl.passed = false; });
+          if (lastAttackerIdx !== -1 && !gs.players[lastAttackerIdx].finished) {
+            gs.roundStarter = lastAttackerIdx;
+          }
+        }
+      }
+
       return;
     }
     next = (next + 1) % total;
   }
 
-  // If we get here, it means everyone else is either finished or passed.
-  // We must reset the cycle so the round can continue (the leader gets to lead again).
-  gs.players.forEach(p => { if (!p.finished) p.passed = false; });
-  gs.lastPlay = null;
-
-  // Find the next non-finished player to take the lead
-  next = (gs.currentPlayerIndex + 1) % total;
-  for (let attempts = 0; attempts < total; attempts++) {
-    if (!gs.players[next].finished) {
-      gs.currentPlayerIndex = next;
-      return;
-    }
-    next = (next + 1) % total;
-  }
+  // Everyone else is either finished or passed → new round cycle.
+  // The current player (whose play wasn't beaten) gets to lead.
+  resetRound(gs, gs.currentPlayerIndex);
 }
 
 export async function playCards(code: string, playerId: string, cardIds: string[]): Promise<{ gameState?: GameState; error?: string }> {
@@ -226,6 +303,13 @@ export async function playCards(code: string, playerId: string, cardIds: string[
   if (playerIdx !== gs.currentPlayerIndex) return { error: 'Not your turn' };
 
   const player = gs.players[playerIdx];
+
+  // DEFENSIVE: If it's a new round (lastPlay is null), ensure ALL passed flags are cleared.
+  // This catches any edge case where a round reset didn't fully propagate.
+  if (gs.lastPlay === null) {
+    gs.players.forEach(p => { if (!p.finished) p.passed = false; });
+  }
+
   const playedCards = cardIds.map(id => player.hand.find(c => c.id === id)).filter((c): c is Card => !!c);
   if (playedCards.length !== cardIds.length) {
     return { error: 'Invalid card selection: some cards are no longer in your hand. Please refresh.' };
@@ -241,12 +325,11 @@ export async function playCards(code: string, playerId: string, cardIds: string[
 
   const otherActivePlayers = gs.players.filter(p => !p.finished && !p.passed && p.id !== playerId);
   
-  // Safety: If everyone else passed or finished, the round should have reset.
-  // We clear lastPlay and reset passed status to allow the player to lead freely
-  // and ensure others can play against this new lead.
-  if (otherActivePlayers.length === 0) {
-    gs.lastPlay = null;
-    gs.players.forEach(p => { if (!p.finished) p.passed = false; });
+  // If the current player IS the last attacker (nobody beat their play),
+  // OR everyone else passed/finished, they win the round → free lead.
+  const isLastAttacker = gs.lastPlay !== null && gs.lastPlay.playerId === playerId;
+  if (otherActivePlayers.length === 0 || isLastAttacker) {
+    resetRound(gs, playerIdx);
   }
 
   if (gs.lastPlay !== null) {
@@ -301,11 +384,19 @@ export async function playCards(code: string, playerId: string, cardIds: string[
       await broadcast(code, 'game_over', { gameState: getPublicGameState(gs, '') });
       return { gameState: getPublicGameState(gs, playerId) };
     }
+
+    // Player finished but game continues — reset the round.
+    // The next non-finished player after the winner gets a free lead.
+    const nextIdx = (playerIdx + 1) % gs.players.length;
+    resetRound(gs, nextIdx);
+
+    await saveRoom(room);
+    await broadcast(code, 'game_state', { gameState: getPublicGameState(gs, '') });
+    return { gameState: getPublicGameState(gs, playerId) };
   }
 
   advanceTurn(gs);
   await saveRoom(room);
-  // Broadcast update (strips hands for security)
   await broadcast(code, 'game_state', { gameState: getPublicGameState(gs, '') });
   return { gameState: getPublicGameState(gs, playerId) };
 }
@@ -319,6 +410,12 @@ export async function passTurn(code: string, playerId: string): Promise<{ gameSt
   if (playerIdx !== gs.currentPlayerIndex) return { error: 'Not your turn' };
   if (gs.lastPlay === null) return { error: 'Cannot pass when you are the round starter' };
 
+  // DEFENSIVE: Clear any stale passed flags at the start of the round.
+  // This should already be handled by resetRound, but ensures correctness.
+  if (gs.lastPlay === null) {
+    gs.players.forEach(p => { if (!p.finished) p.passed = false; });
+  }
+
   gs.players[playerIdx].passed = true;
   
   // Who is left that can still play in this round?
@@ -328,36 +425,19 @@ export async function passTurn(code: string, playerId: string): Promise<{ gameSt
   // The last attacker (the one who didn't pass) wins the round
   if (stillInRound.length <= 1) {
     const lastAttackerId = gs.lastPlay?.playerId;
-    // The winner is the last attacker, OR if they finished, the person who would have been next
     let nextStarterIdx = lastAttackerId ? gs.players.findIndex(p => p.id === lastAttackerId) : -1;
+    if (nextStarterIdx === -1) nextStarterIdx = playerIdx;
 
-    // If attacker is finished or missing, find next non-finished player
-    if (nextStarterIdx === -1 || gs.players[nextStarterIdx].finished) {
-      let searchIdx = playerIdx; // start from person who just passed
-      for (let i = 0; i < gs.players.length; i++) {
-        searchIdx = (searchIdx + 1) % gs.players.length;
-        if (!gs.players[searchIdx].finished) {
-          nextStarterIdx = searchIdx;
-          break;
-        }
-      }
-    }
-
-    // Reset round state for new lead
-    gs.players.forEach(p => { if (!p.finished) p.passed = false; });
-    gs.lastPlay = null;
-    gs.roundStarter = nextStarterIdx;
-    gs.currentPlayerIndex = nextStarterIdx;
+    // resetRound handles finished-player fallback automatically
+    resetRound(gs, nextStarterIdx);
     
     await saveRoom(room);
-    // Broadcast update (strips hands for security)
     await broadcast(code, 'game_state', { gameState: getPublicGameState(gs, '') });
     return { gameState: getPublicGameState(gs, playerId) };
   }
 
   advanceTurn(gs);
   await saveRoom(room);
-  // Broadcast update (strips hands for security)
   await broadcast(code, 'game_state', { gameState: getPublicGameState(gs, '') });
   return { gameState: getPublicGameState(gs, playerId) };
 }

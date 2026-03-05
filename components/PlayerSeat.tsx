@@ -19,12 +19,16 @@ interface PlayerSeatProps {
   layout: 'top' | 'left' | 'right';
   isCurrentTurn: boolean;
   isWinning?: boolean;
+  isNewRound?: boolean;
 }
 
-export default function PlayerSeat({ player, layout, isCurrentTurn, isWinning }: PlayerSeatProps) {
+export default function PlayerSeat({ player, layout, isCurrentTurn, isWinning, isNewRound }: PlayerSeatProps) {
+  // In a new round, treat everyone as non-passed
+  const isPassed = isNewRound ? false : player.passed;
+
   const statusText = player.finished
     ? `#${player.finishOrder} finished!`
-    : player.passed
+    : isPassed
     ? 'passed'
     : isCurrentTurn
     ? 'playing…'
@@ -51,7 +55,7 @@ export default function PlayerSeat({ player, layout, isCurrentTurn, isWinning }:
       </div>
       <div className="seat-info">
         <span className={`seat-name ${isCurrentTurn ? 'active-name' : ''}`}>{player.name}</span>
-        <span className={`seat-status ${player.passed ? 'passed-status' : isCurrentTurn ? 'playing-status' : ''}`}>
+        <span className={`seat-status ${isPassed ? 'passed-status' : isCurrentTurn ? 'playing-status' : ''}`}>
           {statusText}
         </span>
         {!player.connected && <span className="seat-disconnected">⚠ disconnected</span>}

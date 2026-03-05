@@ -1,4 +1,4 @@
-import { Shield, Crown, Trophy, Spade, Heart, Clover, Diamond, User } from 'lucide-react';
+import { Shield, Crown, Trophy, User } from 'lucide-react';
 
 interface Card { rank: string; suit: string; id: string; }
 
@@ -10,13 +10,6 @@ interface CardProps {
   small?: boolean;
   tiny?: boolean;
 }
-
-const SUIT_ICONS: Record<string, any> = {
-  spades: Spade,
-  hearts: Heart,
-  clubs: Clover,
-  diamonds: Diamond,
-};
 
 const SUIT_SYMBOLS: Record<string, string> = {
   clubs: '♣', spades: '♠', hearts: '♥', diamonds: '♦',
@@ -35,7 +28,6 @@ export default function CardComponent({ card, selected, onClick, faceDown, small
 
   const isRed = RED_SUITS.has(card.suit);
   const symbol = SUIT_SYMBOLS[card.suit] || card.suit;
-  const SuitIcon = SUIT_ICONS[card.suit] || Spade;
 
   const renderPips = () => {
     const rank = card.rank;
@@ -127,9 +119,13 @@ export default function CardComponent({ card, selected, onClick, faceDown, small
 
     if (rank === 'A') {
       return (
-        <div className="pip-grid ace-grid">
-          <div className="pip-slot center-pip">
-            <SuitIcon size={small ? 32 : 56} fill="currentColor" />
+        <div className="pip-grid-container">
+          <div className="pip-grid ace-grid">
+            <div className="pip-slot center-pip">
+              <span className="ace-center-symbol">
+                {symbol}
+              </span>
+            </div>
           </div>
         </div>
       );

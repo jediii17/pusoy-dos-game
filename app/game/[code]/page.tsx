@@ -192,7 +192,9 @@ export default function GamePage() {
   const currentPlayer = gameState.players[gameState.currentPlayerIndex];
   const isMyTurn = currentPlayer?.id === playerId;
   const iAmFinished = me?.finished || false;
-  const iAmPassed = me?.passed || false;
+  // In a new round (lastPlay is null), nobody should be in a passed state.
+  // This is a client-side safety net in case the server state hasn't fully propagated.
+  const iAmPassed = gameState.lastPlay === null ? false : (me?.passed || false);
 
   // Arrange opponents by position: top, left, right
   // Arrange opponents by position relative to 'me'
@@ -312,6 +314,7 @@ export default function GamePage() {
             layout={layout}
             isCurrentTurn={gameState.players[gameState.currentPlayerIndex]?.id === player.id}
             isWinning={player.cardCount === minCards && player.cardCount > 0}
+            isNewRound={gameState.lastPlay === null}
           />
         ))}
       </div>

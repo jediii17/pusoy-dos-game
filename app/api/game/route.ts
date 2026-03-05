@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { startGame, playCards, passTurn, getRoom, joinRoom, leaveRoom, getPublicGameState } from '@/lib/room-store';
+import { startGame, playCards, passTurn, getRoom, joinRoom, leaveRoom, getPublicGameState, resetRoom } from '@/lib/room-store';
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,6 +39,12 @@ export async function POST(req: NextRequest) {
         const { gameState, error } = await passTurn(code, playerId);
         if (error) return NextResponse.json({ error }, { status: 400 });
         return NextResponse.json({ gameState });
+      }
+
+      case 'reset': {
+        const { success, error } = await resetRoom(code);
+        if (error) return NextResponse.json({ error }, { status: 400 });
+        return NextResponse.json({ success });
       }
 
       case 'get_state': {

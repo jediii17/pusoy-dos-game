@@ -43,13 +43,21 @@ export default function GameOverPage() {
     if (stored) { try { setGameState(JSON.parse(stored)); } catch {} }
   }, [sendAction]);
 
-  function playAgain() {
+  async function playAgain() {
+    // Reset the room on the server (clears players + gameState)
+    await sendAction('reset');
+    // Clear local session so the join form appears with fresh username input
     sessionStorage.removeItem('isHost');
-    router.push('/');
+    sessionStorage.removeItem('playerName');
+    // Generate a new playerId for the new game
+    const newId = crypto.randomUUID();
+    sessionStorage.setItem('playerId', newId);
+    sessionStorage.removeItem('finalGameState');
+    router.push(`/room/${code}`);
   }
 
   function backToLobby() {
-    sessionStorage.removeItem('isHost');
+    sessionStorage.clear();
     router.push('/');
   }
 
