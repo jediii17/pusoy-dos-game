@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Fredoka } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,6 +21,9 @@ const fredoka = Fredoka({
 export const metadata: Metadata = {
   title: "Pusoy Dos Online",
   description: "Play Pusoy Dos with friends online for free.",
+  other: process.env.NEXT_PUBLIC_ADSENSE_PUB_ID
+    ? { "google-adsense-account": process.env.NEXT_PUBLIC_ADSENSE_PUB_ID }
+    : {},
 };
 
 import BeamsManager from "@/components/BeamsManager";
@@ -31,21 +35,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <head>
-        {process.env.NEXT_PUBLIC_ADSENSE_PUB_ID && (
-          <>
-            <script
-              async
-              src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_PUB_ID}`}
-              crossOrigin="anonymous"
-            />
-            <meta name="google-adsense-account" content={process.env.NEXT_PUBLIC_ADSENSE_PUB_ID} />
-          </>
-        )}
-      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${fredoka.variable} antialiased`}
       >
+        {process.env.NEXT_PUBLIC_ADSENSE_PUB_ID && (
+          <Script
+            async
+            src={`https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${process.env.NEXT_PUBLIC_ADSENSE_PUB_ID}`}
+            crossOrigin="anonymous"
+            strategy="afterInteractive"
+          />
+        )}
         <BeamsManager />
         {children}
       </body>

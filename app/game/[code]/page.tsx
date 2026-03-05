@@ -5,7 +5,6 @@ import { useRouter, useParams } from 'next/navigation';
 import CardComponent from '@/components/Card';
 import PlayerSeat from '@/components/PlayerSeat';
 import LastPlayArea from '@/components/LastPlayArea';
-import AdBanner from '@/components/AdBanner';
 
 import { usePusher } from '@/app/hooks/usePusher';
 import { 
@@ -130,16 +129,36 @@ export default function GamePage() {
 
   async function playCards() {
     if (selectedCards.size === 0) { setError('Select cards to play'); return; }
-    const resp = await sendAction('play', { cardIds: Array.from(selectedCards) });
+    
+    // Optimistic local update
+    const playedIds = Array.from(selectedCards);
+    setGameState(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        players: prev.players.map(p => {
+          if (p.id === playerId) {
+            return {
+              ...p,
+              hand: p.hand?.filter(c => !selectedCards.has(c.id)),
+              cardCount: p.cardCount - selectedCards.size
+            };
+          }
+          return p;
+        })
+      };
+    });
+    setSelectedCards(new Set());
+
+    const resp = await sendAction('play', { cardIds: playedIds });
     if (resp.error) {
       setError(resp.error);
       setTimeout(() => setError(''), 3000);
+      // Re-fetch state on error to sync back
+      const syncResp = await sendAction('get_state');
+      if (syncResp.room?.gameState) setGameState(syncResp.room.gameState);
     } else if (resp.gameState) {
       setGameState(resp.gameState);
-      setSelectedCards(new Set());
-    }
- else {
-      setSelectedCards(new Set());
     }
   }
 
@@ -273,14 +292,6 @@ export default function GamePage() {
       </div>
 
 
-      {/* Game Page Top Ad Slot */}
-      <div className="flex justify-center pb-1">
-        <AdBanner 
-          dataAdSlot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_GAME || ""}
-          dataAdFormat="auto"
-          className="w-full max-w-[728px]"
-        />
-      </div>
 
       {/* Game Table Wrapper */}
       <div className="game-table-container">
@@ -325,7 +336,7 @@ export default function GamePage() {
             </div>
             <div className="player-text-info">
               <span className="player-name-label">{playerName}</span>
-              <span className="player-card-count">{myHand.length} Cards</span>
+              <span className="player-card-count">+{myHand.length} Cards</span>
             </div>
           </div>
 

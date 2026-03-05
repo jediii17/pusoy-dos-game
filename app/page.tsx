@@ -156,7 +156,7 @@ export default function LandingPage() {
           disabled={loading || !username.trim() || (mode === 'join' && !roomCode.trim())}
         >
           <span>{loading ? 'Processing...' : (mode === 'create' ? 'Create Room' : 'Join Room')}</span>
-          {!loading && (mode === 'create' ? <ArrowRight size={16} /> : <LogIn size={16} />)}
+          {!loading && <ArrowRight size={16} />}
         </button>
       </div>
 

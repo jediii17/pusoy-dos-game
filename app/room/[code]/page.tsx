@@ -367,7 +367,7 @@ export default function RoomPage() {
           </div>
         </div>
 
-        <div className="lobby-action-row" style={{ marginTop: '0.5rem' }}>
+        <div className="lobby-action-row">
           <button 
             className="primary-btn"
             onClick={isRealHost ? handleStartGame : undefined}

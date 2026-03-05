@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { usePusher } from '@/app/hooks/usePusher';
-import { Trophy, RotateCcw, Home, Users, ArrowLeft } from 'lucide-react';
+import { Trophy, RotateCcw, Home, Users, ArrowLeft, Spade } from 'lucide-react';
 import AdBanner from '@/components/AdBanner';
 
 interface GamePlayer {
@@ -74,83 +74,72 @@ export default function GameOverPage() {
   const rankColors = ['#fdbf2d', '#C0C0C0', '#CD7F32', '#FF6B6B'];
 
   return (
-    <div className="fixed inset-0 bg-zinc-950 flex items-center justify-center p-4">
-      {/* Background patterns if any */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.05),transparent_70%)] pointer-events-none" />
-
-      <div className="bg-zinc-950 border border-emerald-900/50 rounded-2xl p-6 max-w-md w-full shadow-2xl relative z-10">
-        <div className="text-center mb-6">
-          <Trophy className="w-12 h-12 text-amber-400 mx-auto mb-3" />
-          <h2 
-            className="text-3xl font-bold text-white mb-1"
-            style={{ fontFamily: 'var(--font-fredoka), sans-serif' }}
-          >
-            Game Over!
-          </h2>
+    <main className="landing-bg">
+      <div className="landing-header">
+        <div className="landing-header">
+          <h1 className="landing-logo-text">
+            <Spade className="logo-icon" size={36} fill="none" strokeWidth={2} />
+            <span>Game Over</span>
+            <Spade className="logo-icon" size={36} fill="none" strokeWidth={2} />
+          </h1>
           {winner && (
-            <p className="text-amber-400 font-bold text-lg">
-              {winner.name} wins!
-            </p>
-          )}
+              <h2 className="winner-announce">
+                {winner.name} Wins!
+              </h2>
+            )}
         </div>
-
-        {/* Standings */}
-        <div className="space-y-2 mb-6 max-h-[40vh] overflow-y-auto pr-1">
-          {sorted.map((p, i) => (
-            <div
-              key={p.id}
-              className={`
-                flex items-center gap-3 p-3 rounded-lg
-                ${i === 0 ? 'bg-amber-400/10 border border-amber-400/30' : 'bg-emerald-900/20 border border-emerald-800/20'}
-              `}
-            >
-              <div className={`
-                w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                ${i === 0 ? 'bg-amber-400 text-black' : i === sorted.length - 1 ? 'bg-red-900 text-red-200' : 'bg-emerald-800 text-emerald-200'}
-              `}>
-                #{i + 1}
-              </div>
-              <div className="flex-1">
-                <div className="text-white text-sm font-medium">{p.name} {p.id === playerId && '(You)'}</div>
-                <div className="text-emerald-500/60 text-xs lowercase">
-                  {p.cardCount === 0 ? 'No cards left' : `${p.cardCount} cards left`}
+       <div className="landing-card">
+         <div className="standings-list">
+          {sorted.map((p, i) => {
+            const rankClass = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
+            return (
+              <div key={p.id} className={`standings-item ${rankClass}`}>
+                <div className="standings-rank">#{i + 1}</div>
+                <div className="standings-name">
+                  {p.name} {p.id === playerId && '(You)'}
+                </div>
+                <div className="standings-detail">
+                  <span className="detail-main">
+                    {p.cardCount === 0 ? 'CLEARED' : p.cardCount}
+                  </span>
+                  <span className="detail-sub">
+                    {p.cardCount === 0 ? 'Winner' : 'Cards Left'}
+                  </span>
                 </div>
               </div>
-              {i === 0 && <span className="text-amber-400 text-xs font-bold uppercase tracking-wider">Winner</span>}
-              {i === sorted.length - 1 && sorted.length > 2 && <span className="text-red-400 text-xs uppercase">Last</span>}
-            </div>
-          ))}
+            );
+          })}
         </div>
+       </div>
 
-        {/* Actions */}
-        <div className="flex gap-3">
+        <div className="game-over-actions">
           <button
             onClick={() => { sessionStorage.clear(); router.push('/'); }}
-            className="flex-1 px-4 py-2 rounded-lg bg-transparent border border-emerald-800/50 text-emerald-400 font-medium hover:bg-emerald-800/20 flex items-center justify-center gap-2 transition-colors"
+            className="action-btn-secondary"
           >
-            <Home className="w-4 h-4" />
-            Home
+            <Home className="w-5 h-5" />
+            <span>Home</span>
           </button>
           <button
             onClick={playAgain}
-            className="flex-1 px-4 py-2 rounded-lg bg-amber-400 hover:bg-amber-500 text-black font-bold flex items-center justify-center gap-2 transition-colors"
+            className="action-btn-primary"
           >
-            <RotateCcw className="w-4 h-4" />
-            Play Again
+            <RotateCcw className="w-5 h-5" />
+            <span>Play Again</span>
           </button>
         </div>
 
-        <div className="mt-4 border-t border-emerald-900/20 pt-4">
-          <AdBanner 
-            dataAdSlot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_GAMEOVER || ""}
-            className="w-full"
-          />
-        </div>
-
-        <div className="mt-6 text-center text-emerald-900/40 text-[10px] uppercase font-bold tracking-[0.2em]">
+        <div className="landing-footer">
           Room Code: {code}
         </div>
       </div>
-    </div>
+
+      <div className="fixed bottom-4 right-4 z-50 opacity-20 hover:opacity-100 transition-opacity">
+        <AdBanner 
+          dataAdSlot={process.env.NEXT_PUBLIC_ADSENSE_SLOT_GAMEOVER || ""}
+          className="w-[300px] h-[50px]"
+        />
+      </div>
+    </main>
   );
 }

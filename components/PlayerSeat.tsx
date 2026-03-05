@@ -57,20 +57,21 @@ export default function PlayerSeat({ player, layout, isCurrentTurn, isWinning }:
         {!player.connected && <span className="seat-disconnected">⚠ disconnected</span>}
       </div>
       <div className="seat-cards">
-        {Array.from({ length: Math.min(player.cardCount, 6) }).map((_, i) => (
+        {Array.from({ length: Math.min(player.cardCount, 5) }).map((_, i) => (
           <div
             key={i}
             className="seat-facedown-card"
             style={{ 
-              transform: `rotate(${(i - 2.5) * 8}deg) translateX(${i * 6}px)`,
-              marginLeft: i === 0 ? 0 : '-38px',
+              '--card-index': i,
+              '--fan-angle': `${(i - 2) * 8}deg`,
+              '--stack-offset': `${i * 6}px`,
               zIndex: i
-            }}
+            } as React.CSSProperties}
           />
         ))}
-        {player.cardCount > 0 && (
+        {player.cardCount > 5 && (
           <div className="seat-card-count">
-            {player.cardCount}
+            +{player.cardCount - 5}
           </div>
         )}
       </div>
