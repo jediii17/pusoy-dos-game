@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Pusoy Dos Game 🃏
 
-## Getting Started
+Welcome to the **Pusoy Dos Game**, a modern and interactive real-time multiplayer card game web application inspired by the popular Filipino shedding-card game.
 
-First, run the development server:
+## 📖 Overview
 
+This project provides a fully playable Pusoy Dos experience right in your browser. Whether you want to test your strategy against advanced CPU opponents or challenge friends in real-time multiplayer matches in the 1v1 Arena, the game offers a seamless, reactive, and engaging user experience. 
+
+It handles game rooms, match synchronization, real-time player interactions, and intelligent CPU logic all within a responsive next-generation web architecture.
+
+### ✨ Key Features
+- **Real-time Multiplayer Lobby & Gameplay:** Create rooms, share links, and play against others seamlessly.
+- **Advanced CPU Opponents:** Play solo against CPU players that scale in difficulty (Easy, Average, Hard), mimic human-play pacing, and offer dynamic response times.
+- **1v1 Arena & Classic Map:** Distinct game modes and environments.
+- **Responsive Layout & Animations:** A deeply polished UX/UI optimized for mobile and desktop screens.
+- **Real-time Synchronization:** Built on fast WebSocket connections to handle real-time broadcasting and game state updates.
+
+## 🛠 Tech Stack
+
+Built with a cutting-edge front-end and real-time backend stack:
+
+- **Framework:** [Next.js 16](https://nextjs.org/) (App Router)
+- **UI Library:** [React 19](https://react.dev/)
+- **Language:** [TypeScript](https://www.typescriptlang.org/)
+- **Styling:** [Tailwind CSS v4](https://tailwindcss.com/)
+- **Real-time Engine:** [Pusher Channels](https://pusher.com/) for WebSocket broadcasting
+- **Data & State Management:** [Upstash Redis](https://upstash.com/) for fast, serverless game state management
+- **Icons & Assets:** [Lucide React](https://lucide.dev/)
+
+## 📂 Project Structure
+
+- `app/` - Next.js App Router containing pages (`/game`, `/room`, `/gameover`) and API endpoints (`/api`).
+- `components/` - Reusable UI elements, game boards, buttons, and layout containers.
+- `lib/` - Utility functions, game logic validations, and API/Redis helpers.
+- `public/` - Static assets such as images, background audio, and SVGs.
+
+## 🚀 Getting Started
+
+### Prerequisites
+Before running the project locally, make sure you have:
+- Node.js (v20+ recommended)
+- A [Pusher](https://pusher.com/) account and credentials for WebSockets.
+- An [Upstash Redis](https://upstash.com/) datastore for state caching.
+
+### 1. Clone the repository
+```bash
+git clone <repository-url>
+cd pusoy-dos-game
+```
+
+### 2. Install Dependencies
+Install the required node modules using your preferred package manager:
+```bash
+npm install
+# or
+yarn install
+# or
+pnpm install
+```
+
+### 3. Setup Environment Variables
+Duplicate the `.env.local.example` file and rename it to `.env.local`. Fill in the required API keys for Pusher and Upstash:
+
+```env
+# Example .env.local
+NEXT_PUBLIC_PUSHER_APP_KEY=your_pusher_key
+NEXT_PUBLIC_PUSHER_CLUSTER=your_pusher_cluster
+PUSHER_APP_ID=your_pusher_app_id
+PUSHER_SECRET=your_pusher_secret
+
+UPSTASH_REDIS_REST_URL=your_upstash_url
+UPSTASH_REDIS_REST_TOKEN=your_upstash_token
+```
+
+### 4. Run the Development Server
+Start the local development server:
 ```bash
 npm run dev
 # or
 yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the application running. You can start playing or open a new incognito window to simulate joining your own multiplayer room!
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📜 License
+This project is proprietary and intended for internal use or portfolio demonstration.
